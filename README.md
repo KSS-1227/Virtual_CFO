@@ -231,20 +231,6 @@ We welcome contributions! Here's how to get started:
 - Add tests for new features
 - Update documentation as needed
 
-## 📈 Roadmap
-
-### Q1 2024
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics dashboard
-- [ ] Multi-business support
-- [ ] API marketplace integration
-
-### Q2 2024
-- [ ] Voice commands (Hindi/English)
-- [ ] Inventory management
-- [ ] Tax filing automation
-- [ ] Franchise management tools
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
