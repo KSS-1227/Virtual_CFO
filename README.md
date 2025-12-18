@@ -245,13 +245,6 @@ We welcome contributions! Here's how to get started:
 - [ ] Tax filing automation
 - [ ] Franchise management tools
 
-## 🏆 Achievements
-
-- **🥇 Hackathon Winner** - Nextwave OpenAI Hackathon 2024
-- **⚡ Built in 24 hours** - Complete full-stack application
-- **🚀 Production Ready** - Deployed and serving real users
-- **💡 Innovation Award** - AI-powered financial insights
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
