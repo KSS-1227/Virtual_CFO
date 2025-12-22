@@ -241,21 +241,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Email**: sherigarakarthik17@gmail.com
 - **GitHub**: [@KSS-1227](https://github.com/KSS-1227)
 
-## 🙏 Acknowledgments
-
-- **Nextwave** for organizing the hackathon
-- **OpenAI** for GPT-4 API access
-- **Supabase** for the amazing backend platform
-- **shadcn/ui** for the beautiful component library
-- **Indian MSME community** for inspiration and feedback
-
 ## 📞 Support
-
-- **Documentation**: [Full Documentation](docs/)
 - **Issues**: [GitHub Issues](https://github.com/KSS-1227/Virtual_CFO/issues)
 - **Email**: sherigarakarthik17@gmail.com
-- **Discord**: [Join our community](https://discord.gg/virtualcfo)
-
 ---
 
 <div align="center">
