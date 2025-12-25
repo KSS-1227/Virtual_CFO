@@ -2,7 +2,7 @@ const { generateBusinessIdeas } = require("../config/openai");
 const { getAuthenticatedClient } = require("../config/supabase");
 const { asyncHandler } = require("../middleware/errorHandler");
 const graphRAG = require("../config/graphRAG");
-const { v4: uuidv4 } = require("uuid");
+// const { v4: uuidv4 } = require("uuid");
 
 // Enhanced Business Ideas with Graph RAG
 const getBusinessIdeasWithRAG = asyncHandler(async (req, res) => {
