@@ -2,7 +2,7 @@ const { generateFinancialAdvice } = require("../config/openai");
 const { getAuthenticatedClient } = require("../config/supabase");
 const { asyncHandler } = require("../middleware/errorHandler");
 const graphRAG = require("../config/graphRAG");
-const { v4: uuidv4 } = require("uuid");
+// const { v4: uuidv4 } = require("uuid");
 
 // Enhanced AI Chat Assistant with Graph RAG
 const chatAssistantWithRAG = asyncHandler(async (req, res) => {
