@@ -25,6 +25,8 @@ const businessIdeasRoutes = require("./routes/business-ideas");
 const redisRoutes = require("./routes/redis");
 const productsRoutes = require("./routes/products");
 const aiRoutes = require("./routes/ai");
+const visionRoutes = require("./routes/vision");
+const duplicateRoutes = require("./routes/duplicates");
 
 // Initialize Express app
 const app = express();
@@ -124,6 +126,7 @@ app.get("/api", (req, res) => {
         chat: "/api/chat",
         businessIdeas: "/api/business-ideas",
         redis: "/api/redis",
+        duplicates: "/api/duplicates",
       },
       docs: "See README.md for detailed API documentation",
     },
@@ -139,6 +142,8 @@ app.use("/api/chat", rateLimits.aiChat, chatRoutes);
 app.use("/api/business-ideas", rateLimits.aiChat, businessIdeasRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/vision", rateLimits.aiChat, visionRoutes);
+app.use("/api/duplicates", duplicateRoutes);
 app.use("/api/redis", redisRoutes);
 
 // 404 handler

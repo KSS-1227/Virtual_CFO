@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { earningsAPI, handleAPIError } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Calendar, DollarSign, Package, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, DollarSign, Package, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,8 @@ export default function Earnings() {
   const [loading, setLoading] = useState(false);
   const [todayData, setTodayData] = useState<EarningsEntry | null>(null);
   const [recentEntries, setRecentEntries] = useState<EarningsEntry[]>([]);
+  const [filledDates, setFilledDates] = useState<Date[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [streak, setStreak] = useState(0);
   const [formData, setFormData] = useState({
     earning_date: new Date().toISOString().split('T')[0], // Today's date
@@ -38,6 +41,7 @@ export default function Earnings() {
     checkUserAuth();
     loadTodayData();
     loadRecentEntries();
+    loadFilledDates();
   }, []);
 
   const checkUserAuth = async () => {
@@ -92,6 +96,21 @@ export default function Earnings() {
     }
   };
 
+  const loadFilledDates = async () => {
+    try {
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 3); // Load last 3 months
+      const startDateStr = startDate.toISOString().split('T')[0];
+      
+      const { data } = await earningsAPI.getEarningsByDateRange(startDateStr, endDate);
+      const dates = (data || []).map(entry => new Date(entry.earning_date));
+      setFilledDates(dates);
+    } catch (error) {
+      console.error('Error loading filled dates:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -141,6 +160,7 @@ export default function Earnings() {
       // Refresh data
       await loadTodayData();
       await loadRecentEntries();
+      await loadFilledDates();
       
       // Reset form if it was for today
       if (formData.earning_date === new Date().toISOString().split('T')[0]) {
@@ -229,7 +249,57 @@ export default function Earnings() {
           </Card>
         )}
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Calendar */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                Daily Recording Calendar
+              </CardTitle>
+              <CardDescription>
+                Green dots show recorded dates. Click to select a date.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      earning_date: date.toISOString().split('T')[0] 
+                    }));
+                  }
+                }}
+                disabled={(date) => date > new Date()}
+                modifiers={{
+                  filled: filledDates
+                }}
+                modifiersStyles={{
+                  filled: {
+                    backgroundColor: '#22c55e',
+                    color: 'white',
+                    fontWeight: 'bold'
+                  }
+                }}
+                className="rounded-md border"
+              />
+              <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span>Recorded</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-primary rounded-full"></div>
+                  <span>Selected</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Earnings Entry Form */}
           <Card>
             <CardHeader>
@@ -245,14 +315,17 @@ export default function Earnings() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="date" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
+                    <CalendarIcon className="h-4 w-4" />
                     Date
                   </Label>
                   <Input
                     id="date"
                     type="date"
                     value={formData.earning_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, earning_date: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, earning_date: e.target.value }));
+                      setSelectedDate(new Date(e.target.value));
+                    }}
                     max={new Date().toISOString().split('T')[0]}
                     required
                   />
