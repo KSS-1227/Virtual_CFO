@@ -109,6 +109,26 @@ export function ChatInterface() {
         const cleanText = aiResponse.text.replace(/[^\w\s.,!?;:()-]/g, '');
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+        
+        // Set female voice preference
+        const voices = speechSynthesis.getVoices();
+        const femaleVoice = voices.find(voice => 
+          voice.lang.includes(language === 'hi' ? 'hi' : 'en') && 
+          (voice.name.toLowerCase().includes('female') || 
+           voice.name.toLowerCase().includes('woman') ||
+           voice.name.toLowerCase().includes('samantha') ||
+           voice.name.toLowerCase().includes('karen') ||
+           voice.name.toLowerCase().includes('susan') ||
+           voice.name.toLowerCase().includes('victoria') ||
+           voice.name.toLowerCase().includes('zira'))
+        ) || voices.find(voice => voice.lang.includes(language === 'hi' ? 'hi' : 'en') && voice.gender === 'female');
+        
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        }
+        
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
         speechSynthesis.speak(utterance);
       }
     } catch (error) {

@@ -168,29 +168,23 @@ export const chatAPI = {
 export const earningsAPI = {
   // Add daily earnings entry
   addEarnings: async (earningsData: {
-    earning_date: string;  // Your DB column name
-    amount: number;        // Your DB column name
+    earning_date: string;
+    amount: number;
     inventory_cost: number;
-    file_url?: string;
-    doc_type?: string;
-    processed_text?: string;
   }) => {
-    const token = await getAuthToken();
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/earnings-add`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(earningsData),
-    });
+    const { data, error } = await supabase
+      .from('earnings')
+      .insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+        earning_date: earningsData.earning_date,
+        amount: earningsData.amount,
+        inventory_cost: earningsData.inventory_cost
+      })
+      .select()
+      .single();
     
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Network error' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
-    }
-    
-    return response.json();
+    if (error) throw new Error(error.message);
+    return { success: true, data };
   },
 
   // Get earnings summary and analytics
@@ -404,6 +398,50 @@ export const healthAPI = {
   // Get API info
   getInfo: async () => {
     return apiCall('/api');
+  },
+};
+
+// Duplicate Detection API
+export const duplicateAPI = {
+  // Check if a document is a duplicate
+  checkDuplicate: async (duplicateData: {
+    fileHash: string;
+    fileName: string;
+    fileSize: number;
+    extractedData?: any;
+    userId: string;
+  }) => {
+    return apiCall('/api/duplicates/check', {
+      method: 'POST',
+      body: JSON.stringify(duplicateData),
+    });
+  },
+
+  // Register a processed document
+  registerDocument: async (documentData: {
+    fileHash: string;
+    contentHash?: string;
+    fileName: string;
+    fileSize: number;
+    extractedData?: any;
+    userId: string;
+  }) => {
+    return apiCall('/api/duplicates/register', {
+      method: 'POST',
+      body: JSON.stringify(documentData),
+    });
+  },
+
+  // Get duplicate statistics
+  getStats: async (userId: string) => {
+    return apiCall(`/api/duplicates/stats/${userId}`);
+  },
+
+  // Clear all processed documents
+  clearProcessedDocuments: async (userId: string) => {
+    return apiCall(`/api/duplicates/clear/${userId}`, {
+      method: 'DELETE',
+    });
   },
 };
 
