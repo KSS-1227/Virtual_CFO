@@ -335,8 +335,8 @@ export const businessIdeasAPI = {
 };
 
 // Products and Recommendations API
+
 export const productsAPI = {
-  // Get all products with filtering
   getProducts: async (filters?: {
     category?: string;
     business_type?: string;
@@ -347,52 +347,46 @@ export const productsAPI = {
     const params = new URLSearchParams();
     if (filters?.category) params.append('category', filters.category);
     if (filters?.business_type) params.append('business_type', filters.business_type);
-    if (filters?.min_price) params.append('min_price', filters.min_price.toString());
-    if (filters?.max_price) params.append('max_price', filters.max_price.toString());
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    
-    const queryString = params.toString();
-    return apiCall(`/api/products${queryString ? '?' + queryString : ''}`);
+    if (filters?.min_price) params.append('min_price', String(filters.min_price));
+    if (filters?.max_price) params.append('max_price', String(filters.max_price));
+    if (filters?.limit) params.append('limit', String(filters.limit));
+
+    return apiCall(`/api/products${params.toString() ? `?${params}` : ''}`);
   },
 
-  // Get specific product
   getProduct: async (id: string) => {
     return apiCall(`/api/products/${id}`);
   },
 
-  // Get AI-powered recommendations
   getRecommendations: async () => {
     return apiCall('/api/products/recommendations');
   },
 
-  // Update recommendation interaction
-  updateRecommendationInteraction: async (id: string, interaction: {
-    is_viewed?: boolean;
-    is_interested?: boolean;
-    user_feedback?: string;
-  }) => {
+  updateRecommendationInteraction: async (
+    id: string,
+    interaction: {
+      is_viewed?: boolean;
+      is_interested?: boolean;
+      user_feedback?: string;
+    }
+  ) => {
     return apiCall(`/api/products/recommendations/${id}`, {
       method: 'PUT',
       body: JSON.stringify(interaction),
     });
   },
 
-  // Get product categories
   getCategories: async () => {
     return apiCall('/api/products/categories');
   },
 
-  // Create product (Admin only)
   createProduct: async (productData: {
     name: string;
     description: string;
     category: string;
     target_business_types: string[];
     price: number;
-    pricing_model?: string;
-    key_benefits?: string[];
     vendor_name: string;
-    [key: string]: any;
   }) => {
     return apiCall('/api/products', {
       method: 'POST',
@@ -400,7 +394,6 @@ export const productsAPI = {
     });
   },
 };
-
 // Health check
 export const healthAPI = {
   // Check API health

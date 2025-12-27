@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { profileAPI, chatAPI, handleAPIError } from "@/lib/api";
+import { profileAPI, chatAPI, handleAPIError,productsAPI } from "@/lib/api";
 import { InsightsGenerator } from "@/lib/insights-generator";
 import { 
   TrendingUp, 
@@ -59,6 +59,13 @@ interface ProfileStats {
   total_documents?: number;
   last_update?: string;
 }
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+}
 
 interface MonthlyDataItem {
   month: string;
@@ -100,6 +107,37 @@ export function ModernDashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [products, setProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    const loadRecommendation=async()=>{
+      const data =await productsAPI.getRecommendations();
+      setProducts(data.data);
+    }
+  })
+// const [products] = useState<Product[]>([
+//     {
+//       id: 1,
+//       name: "Smart Inventory Manager",
+//       description: "Reduce overstock and improve inventory turnover automatically",
+//       price: 1999,
+//       category: "Inventory",
+//     },
+//     {
+//       id: 2,
+//       name: "AI Sales Predictor",
+//       description: "Predict next month sales using AI-driven insights",
+//       price: 2999,
+//       category: "Sales",
+//     },
+//     {
+//       id: 3,
+//       name: "Expense Optimization Tool",
+//       description: "Identify hidden costs and optimize monthly expenses",
+//       price: 1499,
+//       category: "Finance",
+//     },
+//   ]);
+
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -502,67 +540,39 @@ export function ModernDashboard() {
                 </Card>
 
                 {/* Key Insights */}
-                <Card className="modern-card">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Key Insights</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {insights.map((insight) => {
-                      const IconComponent = insight.icon;
-                      return (
-                        <div key={insight.id} className="flex gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
-                          <div className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                            insight.type === "success" && "bg-success/10 text-success",
-                            insight.type === "alert" && "bg-warning/10 text-warning",
-                            insight.type === "opportunity" && "bg-primary/10 text-primary",
-                            insight.type === "prediction" && "bg-blue/10 text-blue"
-                          )}>
-                            <IconComponent className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-medium truncate">{insight.title}</p>
-                              <Badge 
-                                variant="outline" 
-                                className={cn(
-                                  "text-xs",
-                                  insight.priority === "high" && "border-destructive/20 text-destructive",
-                                  insight.priority === "medium" && "border-warning/20 text-warning",
-                                  insight.priority === "low" && "border-success/20 text-success"
-                                )}
-                              >
-                                {insight.priority}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {insight.description}
-                            </p>
-                            <p className="text-xs font-medium mt-1 text-primary">
-                              {insight.impact}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Annual: {insight.annualImpact}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
+       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            Recommended for You
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="flex justify-between gap-4 p-4 rounded-lg border bg-muted/30"
+            >
+              <div className="space-y-1">
+                <Badge variant="outline">{product.category}</Badge>
+                <p className="font-medium">{product.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {product.description}
+                </p>
+              </div>
+
+              <div className="text-right space-y-2">
+                <p className="font-semibold">₹{product.price}</p>
+                <Button size="sm">View</Button>
               </div>
             </div>
-          )}
-
-          {activeTab === "advanced" && <AdvancedDashboard />}
-          {activeTab === "chat" && (
-            <Card className="modern-card">
-              <CardContent className="p-0">
-                <div className="h-[600px]">
-                  <ChatInterface />
-                </div>
-              </CardContent>
-            </Card>
+          ))}
+        </CardContent>
+      </Card>
+                
+              </div>
+            </div>
           )}
           {activeTab === "upload" && <DocumentUploader />}
           {activeTab === "reports" && <ReportGenerator businessData={businessData} />}

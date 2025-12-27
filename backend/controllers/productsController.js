@@ -134,7 +134,6 @@ const getRecommendations = asyncHandler(async (req, res) => {
     error: null,
   });
 });
-
 const generateRecommendationsForUser = async (
   userId,
   userContext,
@@ -142,49 +141,56 @@ const generateRecommendationsForUser = async (
 ) => {
   const { business_type, business_category, monthly_revenue } = userContext;
 
-  const { data: products } = await supabase
+  const { data: products, error } = await supabase
     .from("products")
     .select("*")
     .eq("is_active", true)
     .contains("target_business_types", [business_type])
     .contains("target_categories", [business_category])
-    .lte("min_revenue", monthly_revenue || 0)
-    .gte("max_revenue", monthly_revenue || 0);
+    .lte("min_revenue", monthly_revenue ?? 0)
+    .gte("max_revenue", monthly_revenue ?? 0);
 
-  if (!products?.length) return;
+  if (error || !products?.length) return;
 
   for (const product of products) {
     try {
       const analysis = await generateProductAnalysis(product, userContext);
 
-      await supabase.from("product_recommendations").upsert({
-        user_id: userId,
-        product_id: product.id,
-        compatibility_score: analysis.compatibility_score,
-        business_impact_score: analysis.business_impact_score,
-        analysis_summary: analysis.summary,
-        potential_benefits: analysis.benefits,
-        implementation_challenges: analysis.challenges,
-        estimated_roi_months: analysis.roi_months,
-        estimated_monthly_impact: analysis.monthly_impact,
-        recommendation_type: analysis.recommendation_type,
-        priority_level: analysis.priority_level,
-        analyzed_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 7 * 86400000),
-      });
+      await supabase.from("product_recommendations").upsert(
+        {
+          user_id: userId,
+          product_id: product.id,
+          compatibility_score: analysis.compatibility_score,
+          business_impact_score: analysis.business_impact_score,
+          analysis_summary: analysis.summary,
+          potential_benefits: analysis.benefits,
+          implementation_challenges: analysis.challenges,
+          estimated_roi_months: analysis.roi_months,
+          estimated_monthly_impact: analysis.monthly_impact,
+          recommendation_type: analysis.recommendation_type,
+          priority_level: analysis.priority_level,
+          analyzed_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 86400000),
+        },
+        { onConflict: "user_id,product_id" }
+      );
     } catch (err) {
       console.error("Recommendation error:", err);
     }
   }
 };
-
 const updateRecommendationInteraction = asyncHandler(async (req, res) => {
   const supabase = getAuthenticatedClient(req.accessToken);
   const { id } = req.params;
 
   const { data, error } = await supabase
     .from("product_recommendations")
-    .update(req.body)
+    .update({
+      is_viewed: req.body.is_viewed,
+      is_interested: req.body.is_interested,
+      user_feedback: req.body.user_feedback,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .eq("user_id", req.user.id)
     .select()
@@ -192,9 +198,12 @@ const updateRecommendationInteraction = asyncHandler(async (req, res) => {
 
   if (error) throw error;
 
-  res.json({ success: true, data, error: null });
+  res.json({
+    success: true,
+    data,
+    error: null,
+  });
 });
-
 const getCategories = asyncHandler(async (req, res) => {
   const supabase = getAuthenticatedClient(req.accessToken);
 
