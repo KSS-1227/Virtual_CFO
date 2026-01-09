@@ -5,10 +5,11 @@ import { LandingHero } from "@/components/landing-hero";
 import { ProblemSection } from "@/components/problem-section";
 import { SolutionDemo } from "@/components/solution-demo";
 import { FeaturesSection } from "@/components/features-section";
-import { EnhancedDemo } from "@/components/enhanced-demo";
+
 import { PricingSection } from "@/components/pricing-section";
 import { Footer } from "@/components/footer";
 import { ModernDashboard } from "@/components/modern-dashboard";
+import { FloatingVoiceAssistant } from "@/components/FloatingVoiceAssistant";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 
@@ -66,7 +67,12 @@ const Index = () => {
 
   // Show dashboard for users with complete profiles
   if (user && hasProfile && showDashboard) {
-    return <ModernDashboard />;
+    return (
+      <>
+        <ModernDashboard />
+        <FloatingVoiceAssistant />
+      </>
+    );
   }
 
   const handleDemoClick = () => {
@@ -80,7 +86,7 @@ const Index = () => {
       <ProblemSection />
       <SolutionDemo />
       <FeaturesSection />
-      <EnhancedDemo />
+
       <PricingSection onDemoClick={handleDemoClick} />
       <Footer />
       

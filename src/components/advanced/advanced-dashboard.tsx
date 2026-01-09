@@ -4,14 +4,16 @@ import { AdvancedChartsGrid } from "./interactive-charts";
 import { SmartInsightsPanel, GoalTracker, PredictiveAlerts } from "./smart-insights";
 import { AchievementsPanel, ActiveChallenges, FinancialHealthScore } from "./gamification";
 import { AdvancedSearchFilter } from "./search-filter";
+import MarketAnalysisAgent from "../MarketAnalysisAgent";
 
 export function AdvancedDashboard() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="analytics" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="insights">Smart Insights</TabsTrigger>
+          <TabsTrigger value="market">Market AI</TabsTrigger>
           <TabsTrigger value="achievements">Achievements</TabsTrigger>
           <TabsTrigger value="search">Search & Filter</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
@@ -26,6 +28,10 @@ export function AdvancedDashboard() {
             <SmartInsightsPanel />
             <PredictiveAlerts />
           </div>
+        </TabsContent>
+        
+        <TabsContent value="market" className="space-y-6">
+          <MarketAnalysisAgent />
         </TabsContent>
         
         <TabsContent value="achievements" className="space-y-6">

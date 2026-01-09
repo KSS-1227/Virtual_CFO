@@ -16,7 +16,12 @@ if (!config.redis.enabled) {
     disconnect: () => {},
     on: () => {},
     info: () => Promise.resolve(""),
-    time: () => Promise.resolve([Date.now(), 0])
+    time: () => Promise.resolve([Date.now(), 0]),
+    zremrangebyscore: () => Promise.resolve(0),
+    zcard: () => Promise.resolve(0),
+    zadd: () => Promise.resolve(1),
+    expire: () => Promise.resolve(1),
+    zrange: () => Promise.resolve([])
   };
   
   module.exports = {

@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const compression = require("compression");
 const morgan = require("morgan");
 const config = require("./config/env");
 const { errorHandler, notFound } = require("./middleware/errorHandler");
@@ -27,6 +28,15 @@ const productsRoutes = require("./routes/products");
 const aiRoutes = require("./routes/ai");
 const visionRoutes = require("./routes/vision");
 const duplicateRoutes = require("./routes/duplicates");
+const marketAnalysisRoutes = require("./routes/market-analysis");
+const multiModalRoutes = require("./routes/multimodal");
+const voiceRoutes = require("./routes/voice");
+const metricsRoutes = require("./routes/metrics");
+const vectorRoutes = require("./routes/vector");
+const inventoryRoutes = require("./routes/inventory");
+const professionalInventoryRoutes = require("./routes/professionalInventory");
+const notificationRoutes = require("./routes/notifications");
+const { EmbeddingWorker } = require("./services/embeddingWorker");
 
 // Initialize Express app
 const app = express();
@@ -35,6 +45,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Enhanced security middleware
+app.use(compression());
 app.use(securityHeaders);
 app.use(securityLogger);
 app.use(corsSecurityCheck);
@@ -127,6 +138,7 @@ app.get("/api", (req, res) => {
         businessIdeas: "/api/business-ideas",
         redis: "/api/redis",
         duplicates: "/api/duplicates",
+        marketAnalysis: "/api/market-analysis",
       },
       docs: "See README.md for detailed API documentation",
     },
@@ -143,8 +155,16 @@ app.use("/api/business-ideas", rateLimits.aiChat, businessIdeasRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/vision", rateLimits.aiChat, visionRoutes);
+app.use("/api/metrics", metricsRoutes);
 app.use("/api/duplicates", duplicateRoutes);
 app.use("/api/redis", redisRoutes);
+app.use("/api/market-analysis", rateLimits.aiChat, marketAnalysisRoutes);
+app.use("/api/multimodal", rateLimits.aiChat, multiModalRoutes);
+app.use("/api/voice", rateLimits.aiChat, voiceRoutes);
+app.use("/api/vector", vectorRoutes);
+app.use("/api/inventory", inventoryRoutes);
+app.use("/api/inventory/professional", professionalInventoryRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -154,6 +174,9 @@ app.use(errorHandler);
 
 // Start server
 const PORT = config.port;
+
+let serverInstance = null;
+let embeddingWorker = null;
 
 const startServer = async () => {
   try {
@@ -198,6 +221,17 @@ ${
       `);
     });
 
+    // keep reference for shutdown
+    serverInstance = server;
+
+    // Start background embedding worker (only in non-test environments)
+    try {
+      embeddingWorker = new EmbeddingWorker();
+      embeddingWorker.start();
+    } catch (wkErr) {
+      console.error('EmbeddingWorker failed to start:', wkErr);
+    }
+
     // Handle server errors
     server.on("error", (error) => {
       console.error("❌ Server error:", error);
@@ -215,7 +249,25 @@ ${
 const gracefulShutdown = async () => {
   console.log("🛑 Shutdown signal received, shutting down gracefully...");
   try {
-    // Perform any cleanup operations here
+    // Stop background worker if running
+    try {
+      if (embeddingWorker && typeof embeddingWorker.stop === 'function') {
+        embeddingWorker.stop();
+      }
+    } catch (wkErr) {
+      console.error('Error stopping embedding worker:', wkErr);
+    }
+
+    // Close HTTP server
+    if (serverInstance) {
+      await new Promise((resolve, reject) => {
+        serverInstance.close((err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+    }
+
     console.log("✅ Graceful shutdown completed");
     process.exit(0);
   } catch (error) {
