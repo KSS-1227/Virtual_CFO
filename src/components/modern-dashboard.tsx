@@ -30,7 +30,8 @@ import {
   Home,
   User,
   LogOut,
-  Brain
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -348,7 +349,7 @@ export function ModernDashboard() {
           
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">₹</span>
+              <Sparkles className="text-white h-5 w-5" />
             </div>
             <div>
               <h1 className="text-lg font-semibold">VirtualCFO</h1>
