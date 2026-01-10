@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { chatAPI, handleAPIError } from "@/lib/api";
+import { chatAPI, handleAPIError, inventoryAPI } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Send, 
@@ -60,6 +60,8 @@ export function EnhancedChatInterface() {
   const [conversationHistory, setConversationHistory] = useState<ConversationHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [inventoryData, setInventoryData] = useState<any[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
@@ -73,10 +75,26 @@ export function EnhancedChatInterface() {
     scrollToBottom();
   }, [messages]);
 
-  // Load conversation history on mount
+  // Load conversation history and inventory data on mount
   useEffect(() => {
     loadConversationHistory();
+    loadInventoryData();
   }, []);
+
+  const loadInventoryData = async () => {
+    try {
+      setLoadingInventory(true);
+      const response = await inventoryAPI.getInventory();
+      if (response.success) {
+        setInventoryData(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading inventory data:', error);
+      setInventoryData([]);
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
 
   const loadConversationHistory = async () => {
     try {
@@ -122,9 +140,30 @@ export function EnhancedChatInterface() {
       let fullResponse = '';
       let metadata: any = {};
 
-      // Use streaming API with Graph RAG
+      // Enhanced context with inventory data for better financial advice
+      const enhancedContext = {
+        message: userMessage.content,
+        inventory_context: {
+          total_items: inventoryData.length,
+          total_value: inventoryData.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0),
+          low_stock_items: inventoryData.filter(item => item.quantity <= (item.reorder_level || 5)),
+          high_value_items: inventoryData.filter(item => (item.quantity * item.unit_price) > 10000),
+          categories: [...new Set(inventoryData.map(item => item.category))],
+          recent_items: inventoryData.filter(item => {
+            const createdDate = new Date(item.created_at || Date.now());
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            return createdDate > thirtyDaysAgo;
+          })
+        },
+        financial_context: {
+          request_type: 'inventory_aware_advice',
+          include_inventory_insights: true
+        }
+      };
+
+      // Use streaming API with enhanced inventory context
       await chatAPI.streamAIResponse(
-        userMessage.content,
+        JSON.stringify(enhancedContext),
         (token) => {
           fullResponse += token.text;
           setMessages(prev => 
@@ -348,14 +387,15 @@ export function EnhancedChatInterface() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Welcome to AI CFO Assistant</h3>
                 <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  I'm your intelligent financial advisor powered by Graph RAG. Ask me about your business finances, get insights, and receive personalized recommendations.
+                  I'm your intelligent financial advisor with inventory insights. I analyze your stock levels, 
+                  inventory value, and provide data-driven financial recommendations.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
                   {[
-                    { icon: TrendingUp, text: "Analyze my cash flow trends", color: "text-green-600" },
-                    { icon: DollarSign, text: "How can I reduce expenses?", color: "text-blue-600" },
-                    { icon: BarChart3, text: "Show me profit margin insights", color: "text-purple-600" },
-                    { icon: Zap, text: "Generate financial forecast", color: "text-orange-600" },
+                    { icon: TrendingUp, text: "Analyze inventory turnover and cash flow", color: "text-green-600" },
+                    { icon: DollarSign, text: "Which inventory items are most profitable?", color: "text-blue-600" },
+                    { icon: BarChart3, text: "Show inventory value vs revenue trends", color: "text-purple-600" },
+                    { icon: Zap, text: "Optimize inventory for better cash flow", color: "text-orange-600" },
                   ].map((suggestion, index) => (
                     <Button
                       key={index}
@@ -528,6 +568,18 @@ export function EnhancedChatInterface() {
           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-4">
               <span>Press Enter to send, Shift+Enter for new line</span>
+              {loadingInventory && (
+                <div className="flex items-center gap-1 text-blue-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Loading inventory...</span>
+                </div>
+              )}
+              {inventoryData.length > 0 && (
+                <div className="flex items-center gap-1 text-green-600">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>{inventoryData.length} items loaded</span>
+                </div>
+              )}
               {currentConversationId && (
                 <div className="flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3 text-green-500" />
@@ -537,7 +589,7 @@ export function EnhancedChatInterface() {
             </div>
             <div className="flex items-center gap-1">
               <Brain className="h-3 w-3" />
-              <span>Powered by Graph RAG</span>
+              <span>AI CFO with Inventory Intelligence</span>
             </div>
           </div>
         </div>

@@ -629,6 +629,11 @@ export const metricsAPI = {
 
 // Inventory API
 export const inventoryAPI = {
+  // Get inventory data for AI assistant
+  getInventory: async () => {
+    return apiCall('/api/inventory/items');
+  },
+
   // List inventory items with current stock
   listItems: async () => {
     return apiCall('/api/inventory/items');
