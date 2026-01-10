@@ -79,52 +79,7 @@ const Index = () => {
     setShowDashboard(true);
   };
 
-<<<<<<< HEAD
   return <LandingPage />;
-=======
-  return (
-    <div className="min-h-screen">
-      <Header onDemoClick={handleDemoClick} />
-      <LandingHero />
-      <ProblemSection />
-      <SolutionDemo />
-      <FeaturesSection />
-
-      <PricingSection onDemoClick={handleDemoClick} />
-      <Footer />
-      
-      {/* Demo CTA Section */}
-      <section className="py-20 bg-gradient-hero">
-        <div className="container mx-auto px-4 text-center">
-          <div className="max-w-3xl mx-auto space-y-8">
-            <div className="space-y-4">
-              <h2 className="text-3xl lg:text-4xl font-bold text-white">
-                Ready to Transform Your Business?
-              </h2>
-              <p className="text-lg text-white/90">
-                Join thousands of Indian small businesses using VirtualCFO to boost profits and make smarter financial decisions.
-              </p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-8">
-              <h3 className="text-xl font-semibold mb-4 text-white">Try the Interactive Demo</h3>
-              <p className="text-white/80 mb-6">
-                Explore Rajesh Electronics with real financial data and AI insights. See exactly how VirtualCFO works.
-              </p>
-              
-              <button 
-                onClick={() => setShowDashboard(true)}
-                className="bg-white text-primary hover:bg-white/90 transition-colors font-semibold px-8 py-3 rounded-lg text-lg"
-              >
-                Launch Demo Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 };
 
 export default Index;

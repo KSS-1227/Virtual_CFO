@@ -203,19 +203,11 @@ export function ModernDashboard() {
         const data = await productsAPI.getRecommendations();
         setProducts(data.data);
       } catch (error) {
-<<<<<<< HEAD
-        console.error('Error loading recommendations:', error);
-      }
-    };
-    loadRecommendation();
-  }, [])
-=======
         console.error("Error loading product recommendations:", error);
       }
     };
     loadRecommendation();
   }, []);
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 // const [products] = useState<Product[]>([
 //     {
 //       id: 1,
