@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AdvancedChartsGrid } from "./interactive-charts";
 import { SmartInsightsPanel, GoalTracker, PredictiveAlerts } from "./smart-insights";
 import { AchievementsPanel, ActiveChallenges, FinancialHealthScore } from "./gamification";
 import { AdvancedSearchFilter } from "./search-filter";
@@ -9,9 +8,8 @@ import MarketAnalysisAgent from "../MarketAnalysisAgent";
 export function AdvancedDashboard() {
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="analytics" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+      <Tabs defaultValue="insights" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="insights">Smart Insights</TabsTrigger>
           <TabsTrigger value="market">Market AI</TabsTrigger>
           <TabsTrigger value="achievements">Achievements</TabsTrigger>
@@ -19,10 +17,7 @@ export function AdvancedDashboard() {
           <TabsTrigger value="goals">Goals</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="analytics" className="space-y-6">
-          <AdvancedChartsGrid />
-        </TabsContent>
-        
+
         <TabsContent value="insights" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SmartInsightsPanel />
