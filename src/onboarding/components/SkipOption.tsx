@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface SkipOptionProps {
   onSkip: () => void;
@@ -35,6 +35,9 @@ export function SkipOption({ onSkip, onSaveProgress }: SkipOptionProps) {
               <AlertTriangle className="w-5 h-5 text-amber-500" />
               Save Your Progress?
             </DialogTitle>
+            <DialogDescription>
+              You're making great progress! Would you like to save and continue later, or skip the setup entirely?
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">

@@ -89,7 +89,7 @@ secrets=(
     # "WHATSAPP_ACCESS_TOKEN:$WHATSAPP_ACCESS_TOKEN" # Disabled until hosting
     # "WHATSAPP_VERIFY_TOKEN:$WHATSAPP_VERIFY_TOKEN" # Disabled until hosting
     "CRON_SECRET:$CRON_SECRET"
-    "FRONTEND_URL:${FRONTEND_URL:-http://localhost:3000}"
+    "FRONTEND_URL:${FRONTEND_URL:-http://localhost:5173}"
 )
 
 for secret in "${secrets[@]}"; do

@@ -20,23 +20,24 @@ export interface ApiResponse<T = any> {
 }
 
 export function createResponse<T>(
-  data: T | null, 
-  error: string | null = null, 
+  data: T | null,
+  error: string | null = null,
   status: number = 200
 ): Response {
   const response: ApiResponse<T> = {
     success: !error,
-    ...(data && { data }),
+    ...(data !== null && data !== undefined && { data }),
     ...(error && { error })
   }
-  
+
   return new Response(JSON.stringify(response), {
     status,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
+      'Access-Control-Allow-Credentials': 'true'
     }
   })
 }

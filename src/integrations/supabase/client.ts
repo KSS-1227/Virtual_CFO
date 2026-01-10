@@ -10,8 +10,21 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: window.localStorage,
+    storageKey: 'supabase.auth.token',
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,  // ← THIS IS THE KEY FIX!
   }
 });
+
+// Debug logging
+if (typeof window !== 'undefined') {
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('🔄 Auth Event:', event);
+    console.log('✅ Session exists:', !!session);
+    if (session) {
+      console.log('👤 User:', session.user.email);
+    }
+  });
+}

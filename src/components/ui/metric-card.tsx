@@ -13,6 +13,7 @@ interface MetricCardProps {
   };
   isCurrency?: boolean;
   className?: string;
+  subtitle?: string;
 }
 
 export function MetricCard({ 
@@ -21,7 +22,8 @@ export function MetricCard({
   icon: Icon, 
   trend, 
   isCurrency = false, 
-  className 
+  className,
+  subtitle
 }: MetricCardProps) {
   return (
     <Card className={cn("card-hover", className)}>
@@ -38,6 +40,9 @@ export function MetricCard({
             <Currency amount={value} size="xl" />
           ) : (
             <p className="text-2xl font-bold">{value}%</p>
+          )}
+          {subtitle && (
+            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
           )}
         </div>
         

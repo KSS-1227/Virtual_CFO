@@ -1,36 +1,37 @@
-const Redis = require("ioredis");
-const config = require("./env");
+// const Redis = require("ioredis");
+// const config = require("./env");
 
-// Check if Redis is enabled
-if (!config.redis.enabled) {
-  console.log("⚠️ Redis is disabled in configuration");
-  
-  // Export mock Redis clients
-  const mockRedisClient = {
-    ping: () => Promise.resolve("PONG"),
-    get: () => Promise.resolve(null),
-    set: () => Promise.resolve("OK"),
-    setex: () => Promise.resolve("OK"),
-    del: () => Promise.resolve(1),
-    quit: () => Promise.resolve("OK"),
-    disconnect: () => {},
-    on: () => {},
-    info: () => Promise.resolve(""),
-    time: () => Promise.resolve([Date.now(), 0])
-  };
-  
-  module.exports = {
-    redisClient: mockRedisClient,
-    redisSubscriber: mockRedisClient,
-    redisRateLimiter: mockRedisClient,
-    testRedisConnection: () => Promise.resolve(true),
-    getRedisHealth: () => Promise.resolve({ status: "disabled" }),
-    shutdownRedisClients: () => Promise.resolve()
-  };
-  
-  return;
-}
+// Redis is commented out - using mock clients instead
+console.log("⚠️ Redis is disabled (commented out) - using mock clients");
 
+const mockRedisClient = {
+  ping: () => Promise.resolve("PONG"),
+  get: () => Promise.resolve(null),
+  set: () => Promise.resolve("OK"),
+  setex: () => Promise.resolve("OK"),
+  del: () => Promise.resolve(1),
+  quit: () => Promise.resolve("OK"),
+  disconnect: () => {},
+  on: () => {},
+  info: () => Promise.resolve(""),
+  time: () => Promise.resolve([Date.now(), 0]),
+  dbsize: () => Promise.resolve(0),
+  keys: () => Promise.resolve([]),
+  flushdb: () => Promise.resolve("OK")
+};
+
+module.exports = {
+  redisClient: mockRedisClient,
+  redisSubscriber: mockRedisClient,
+  redisRateLimiter: mockRedisClient,
+  testRedisConnection: () => Promise.resolve(true),
+  getRedisHealth: () => Promise.resolve({ status: "disabled" }),
+  shutdownRedisClients: () => Promise.resolve()
+};
+
+// return;
+
+/*
 // Redis configuration with enhanced production settings
 const redisConfig = {
   host: config.redis.host,
@@ -265,3 +266,4 @@ module.exports = {
   getRedisHealth,
   shutdownRedisClients,
 };
+*/

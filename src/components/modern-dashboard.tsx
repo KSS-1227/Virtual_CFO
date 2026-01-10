@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { profileAPI, chatAPI, handleAPIError,productsAPI } from "@/lib/api";
+import { profileAPI, chatAPI, handleAPIError, productsAPI, earningsAPI, monthlyRevenueHelpers, revenueAPI } from "@/lib/api";
 import { InsightsGenerator } from "@/lib/insights-generator";
+import MonthSelector from "./month-selector";
 import { 
   TrendingUp, 
   DollarSign, 
@@ -28,7 +29,8 @@ import {
   MessageCircle,
   Home,
   User,
-  LogOut
+  LogOut,
+  Brain
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,8 +40,9 @@ import { DocumentUploader } from "@/components/document-uploader";
 import { ReportGenerator } from "@/components/report-generator";
 import { InsightsPanel } from "@/components/insights-panel";
 import { ProfileView } from "@/components/profile-view";
-import { ContactSection } from "@/components/contact-section";
+import { ComparisonModal } from "@/components/comparison-modal";
 import { SupportChatbot } from "@/components/support-chatbot";
+import { comparisonAPI } from "@/lib/api";
 
 interface ProfileData {
   business_name?: string;
@@ -81,9 +84,18 @@ interface MonthlyDataItem {
   growth_percentage: number;
 }
 
+interface MonthlyRevenueData {
+  amount: number;
+  source: 'calculated' | 'estimated';
+  monthName: string;
+  daysRecorded: number;
+  growthPercentage: number;
+}
+
 interface BusinessDataExtended {
   healthScore: number;
   monthlyRevenue: number;
+  monthlyRevenueData: MonthlyRevenueData;
   monthlyExpenses: number;
   profitMargin: number;
   cashFlow: number;
@@ -104,16 +116,87 @@ export function ModernDashboard() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
+  const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
+  const [earningsSummary, setEarningsSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [earningsLoading, setEarningsLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  useEffect(() => {
-    const loadRecommendation=async()=>{
-      const data =await productsAPI.getRecommendations();
-      setProducts(data.data);
+  
+  // Month Selector state
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  
+  // Revenue analytics state
+  const [comparisonData, setComparisonData] = useState<any>(null);
+  const [breakdownData, setBreakdownData] = useState<any>(null);
+  const [insightData, setInsightData] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
+  
+  // Comparison modal state
+  const [showComparison, setShowComparison] = useState<boolean>(false);
+  const [comparisonModalData, setComparisonModalData] = useState<any>(null);
+  const [loadingComparison, setLoadingComparison] = useState<boolean>(false);
+
+  const loadProfileData = async () => {
+    try {
+      setLoading(true);
+      const [profile, stats] = await Promise.all([
+        profileAPI.getProfile(),
+        profileAPI.getProfileStats()
+      ]);
+
+      setProfileData(profile.data);
+      setProfileStats(stats.data);
+      
+      // Get user creation date
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserCreatedAt(user.created_at);
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+      // Graceful fallback - don't break the UI
+      setProfileData(null);
+      setProfileStats(null);
+      toast({
+        title: "Error Loading Profile Data",
+        description: "Please check your connection.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  })
+  };
+
+  const loadEarningsData = async (month?: string) => {
+    try {
+      setEarningsLoading(true);
+      const summary = await earningsAPI.getSummary(undefined, month);
+      setEarningsSummary(summary);
+    } catch (error) {
+      console.error('Error loading earnings data:', error);
+      // Graceful fallback - earnings data is optional
+      setEarningsSummary(null);
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadRecommendation = async () => {
+      try {
+        const data = await productsAPI.getRecommendations();
+        setProducts(data.data);
+      } catch (error) {
+        console.error('Error loading recommendations:', error);
+      }
+    };
+    loadRecommendation();
+  }, [])
 // const [products] = useState<Product[]>([
 //     {
 //       id: 1,
@@ -139,6 +222,25 @@ export function ModernDashboard() {
 //   ]);
 
 
+  // Handle comparison modal
+  const handleShowComparison = async () => {
+    setShowComparison(true);
+    setLoadingComparison(true);
+    try {
+      const result = await comparisonAPI.getDetailedComparison(selectedMonth);
+      setComparisonModalData(result.data);
+    } catch (error) {
+      console.error('Error fetching comparison data:', error);
+      toast({
+        title: "Error Loading Comparison",
+        description: "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingComparison(false);
+    }
+  };
+
   // Handle sign out
   const handleSignOut = async () => {
     try {
@@ -161,69 +263,130 @@ export function ModernDashboard() {
   // Load profile data on component mount and when switching tabs
   useEffect(() => {
     loadProfileData();
+    loadEarningsData(selectedMonth);
   }, []);
 
   // Refresh data when returning to overview from profile
   useEffect(() => {
     if (activeTab === "overview") {
       loadProfileData();
+      loadEarningsData(selectedMonth);
     }
   }, [activeTab]);
 
-  const loadProfileData = async () => {
-    try {
-      setLoading(true);
-      const [profile, stats] = await Promise.all([
-        profileAPI.getProfile(),
-        profileAPI.getProfileStats()
-      ]);
-      
-      setProfileData(profile.data);
-      setProfileStats(stats.data);
-    } catch (error) {
-      console.error('Error loading profile data:', error);
-      // Graceful fallback - don't break the UI
-      setProfileData(null);
-      setProfileStats(null);
-      toast({
-        title: "Error Loading Data",
-        description: "Please check your connection.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Refresh earnings data when selected month changes
+  useEffect(() => {
+    loadEarningsData(selectedMonth);
+  }, [selectedMonth]);
 
-  // Calculate business data - use API data
-  const businessData: BusinessDataExtended = {
-    // Use real profile data with calculated values
-    healthScore: profileStats?.profit_margin > 10 ? 75 : profileStats?.profit_margin > 5 ? 65 : 50,
-    monthlyRevenue: profileData?.monthly_revenue || 0,
-    monthlyExpenses: profileData?.monthly_expenses || 0,
-    // Calculate profit margin from actual data
-    profitMargin: profileData?.monthly_revenue && profileData?.monthly_expenses && profileData.monthly_revenue > 0 ? 
-      Math.round(((profileData.monthly_revenue - profileData.monthly_expenses) / profileData.monthly_revenue) * 100 * 10) / 10 : 0,
-    // Calculate cash flow (net profit) from actual data
-    cashFlow: profileData?.monthly_revenue && profileData?.monthly_expenses ? 
-      (profileData.monthly_revenue - profileData.monthly_expenses) : 0,
-    companyName: profileData?.business_name || "Your Business",
-    trend: {
-      // Show realistic trends based on data availability
-      revenue: profileData?.monthly_revenue ? 
-        { value: Math.floor(Math.random() * 10) + 1, isPositive: true } : 
-        { value: 0, isPositive: true },
-      expenses: profileData?.monthly_expenses ? 
-        { value: Math.floor(Math.random() * 5) + 1, isPositive: false } : 
-        { value: 0, isPositive: false },
-      cashFlow: profileData?.monthly_revenue && profileData?.monthly_expenses ? 
-        { value: Math.floor(Math.random() * 8) + 1, isPositive: (profileData.monthly_revenue - profileData.monthly_expenses) > 0 } : 
-        { value: 0, isPositive: true },
-      profitMargin: profileData?.monthly_revenue && profileData?.monthly_expenses ? 
-        { value: Math.floor(Math.random() * 3) + 1, isPositive: true } : 
-        { value: 0, isPositive: true }
+  // Fetch analytics data when selected month changes
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchAnalytics() {
+      console.log('🔄 Fetching analytics for month:', selectedMonth);
+      setLoadingAnalytics(true);
+      try {
+        // Check if user is authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.log('❌ No user session found');
+          if (isMounted) {
+            setComparisonData(null);
+            setBreakdownData(null);
+            setInsightData(null);
+          }
+          return;
+        }
+        
+        console.log('✅ User authenticated, fetching revenue data...');
+        
+        const [compareResult, breakdownResult, insightResult] = await Promise.allSettled([
+          revenueAPI.getRevenueComparison(selectedMonth),
+          revenueAPI.getRevenueBreakdown(selectedMonth),
+          revenueAPI.getRevenueInsights(selectedMonth),
+        ]);
+
+        console.log('📊 API Results:', {
+          comparison: compareResult.status,
+          breakdown: breakdownResult.status,
+          insights: insightResult.status
+        });
+
+        if (isMounted) {
+          setComparisonData(compareResult.status === 'fulfilled' ? compareResult.value : null);
+          setBreakdownData(breakdownResult.status === 'fulfilled' ? breakdownResult.value : null);
+          setInsightData(insightResult.status === 'fulfilled' ? insightResult.value : null);
+          
+          // Log any errors
+          if (compareResult.status === 'rejected') {
+            console.error('❌ Comparison API error:', compareResult.reason);
+          }
+          if (breakdownResult.status === 'rejected') {
+            console.error('❌ Breakdown API error:', breakdownResult.reason);
+          }
+          if (insightResult.status === 'rejected') {
+            console.error('❌ Insights API error:', insightResult.reason);
+          }
+        }
+      } catch (err) {
+        console.error('❌ Analytics fetch error:', err);
+        if (isMounted) {
+          setComparisonData(null);
+          setBreakdownData(null);
+          setInsightData(null);
+        }
+      } finally {
+        if (isMounted) setLoadingAnalytics(false);
+      }
     }
-  };
+    fetchAnalytics();
+    return () => { isMounted = false; };
+  }, [selectedMonth]);
+
+  // Calculate business data - use API data with earnings-based monthly revenue
+  const businessData: BusinessDataExtended = (() => {
+    // Get the best available monthly revenue data
+    const rawMonthlyRevenueData = monthlyRevenueHelpers.getBestMonthlyRevenue(earningsSummary, profileData);
+
+    // Ensure the source is strictly typed as 'calculated' or 'estimated'
+    const monthlyRevenueData: MonthlyRevenueData = {
+      ...rawMonthlyRevenueData,
+      source:
+        rawMonthlyRevenueData.source === "calculated"
+          ? "calculated"
+          : "estimated",
+    };
+
+    return {
+      // Use real profile data with calculated values
+      healthScore: profileStats?.profit_margin > 10 ? 75 : profileStats?.profit_margin > 5 ? 65 : 50,
+      monthlyRevenue: monthlyRevenueData.amount,
+      monthlyRevenueData,
+      monthlyExpenses: profileData?.monthly_expenses || 0,
+      // Calculate profit margin from actual data
+      profitMargin: monthlyRevenueData.amount && profileData?.monthly_expenses && monthlyRevenueData.amount > 0 ? 
+        Math.round(((monthlyRevenueData.amount - profileData.monthly_expenses) / monthlyRevenueData.amount) * 100 * 10) / 10 : 0,
+      // Calculate cash flow (net profit) from actual data
+      cashFlow: monthlyRevenueData.amount && profileData?.monthly_expenses ? 
+        (monthlyRevenueData.amount - profileData.monthly_expenses) : 0,
+      companyName: profileData?.business_name || "Your Business",
+      trend: {
+        // Show realistic trends based on data availability
+        revenue: monthlyRevenueData.amount > 0 ? 
+          { value: Math.abs(monthlyRevenueData.growthPercentage) || Math.floor(Math.random() * 10) + 1, isPositive: monthlyRevenueData.growthPercentage >= 0 } : 
+          { value: 0, isPositive: true },
+        expenses: profileData?.monthly_expenses ? 
+          { value: Math.floor(Math.random() * 5) + 1, isPositive: false } : 
+          { value: 0, isPositive: false },
+        cashFlow: monthlyRevenueData.amount > 0 && profileData?.monthly_expenses ? 
+          { value: Math.floor(Math.random() * 8) + 1, isPositive: (monthlyRevenueData.amount - profileData.monthly_expenses) > 0 } : 
+          { value: 0, isPositive: true },
+        profitMargin: monthlyRevenueData.amount > 0 && profileData?.monthly_expenses ? 
+          { value: Math.floor(Math.random() * 3) + 1, isPositive: true } : 
+          { value: 0, isPositive: true }
+      }
+    };
+  })();
 
   // Generate dynamic insights
   const dynamicInsights = InsightsGenerator.generateInsights(profileData);
@@ -381,6 +544,35 @@ export function ModernDashboard() {
           )}
 
           {/* Health Score & Quick Stats */}
+          <div className="flex items-center justify-between mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-800">Key Metrics</h2>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleShowComparison}
+                className="text-xs flex items-center gap-2 hover:bg-blue-50 border-blue-300"
+                disabled={loadingComparison}
+              >
+                {loadingComparison ? (
+                  <>
+                    <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    📊 Compare Months
+                  </>
+                )}
+              </Button>
+              <MonthSelector 
+                value={selectedMonth} 
+                onChange={setSelectedMonth} 
+                userCreatedAt={userCreatedAt || undefined}
+              />
+            </div>
+          </div>
+          
           <div className="grid lg:grid-cols-3 gap-6">
             <Card className="modern-card lg:col-span-1">
               <CardHeader className="pb-3">
@@ -434,11 +626,20 @@ export function ModernDashboard() {
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <MetricCard
                 title="Monthly Revenue"
-                value={businessData.monthlyRevenue}
+                value={earningsLoading || loadingAnalytics ? 0 : businessData.monthlyRevenue}
                 icon={TrendingUp}
-                trend={businessData.monthlyRevenue > 0 ? businessData.trend?.revenue : undefined}
+                trend={!earningsLoading && !loadingAnalytics && comparisonData?.data?.growth ? {
+                  value: Math.round(Math.abs(comparisonData.data.growth.revenue_growth)),
+                  isPositive: comparisonData.data.growth.revenue_growth >= 0
+                } : (!earningsLoading && !loadingAnalytics && businessData.monthlyRevenue > 0 ? businessData.trend?.revenue : undefined)}
                 isCurrency={true}
-                className="modern-card"
+                className={`modern-card ${loadingAnalytics ? 'opacity-60' : ''}`}
+                subtitle={
+                  earningsLoading || loadingAnalytics ? "Loading..." : 
+                  businessData.monthlyRevenueData.source === 'calculated' 
+                    ? `${businessData.monthlyRevenueData.monthName} (${businessData.monthlyRevenueData.daysRecorded} days recorded)`
+                    : `${businessData.monthlyRevenueData.monthName} (Estimated)`
+                }
               />
               
               <MetricCard
@@ -507,6 +708,35 @@ export function ModernDashboard() {
                       Record Daily Earnings
                     </Button>
                     
+                    {/* Temporary test button to create sample data */}
+                    {businessData.monthlyRevenue === 0 && (
+                      <Button 
+                        className="w-full justify-start" 
+                        variant="secondary" 
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await earningsAPI.createSampleData();
+                            toast({
+                              title: "Sample Data Created",
+                              description: "5 days of sample earnings added. Refresh to see updated revenue.",
+                            });
+                            // Refresh the data
+                            loadEarningsData(selectedMonth);
+                          } catch (error) {
+                            toast({
+                              title: "Error Creating Sample Data",
+                              description: "Please try again.",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                      >
+                        <Zap className="h-4 w-4 mr-3" />
+                        Add Sample Earnings Data
+                      </Button>
+                    )}
+                    
                     <Button 
                       className="w-full justify-start" 
                       variant="outline" 
@@ -539,7 +769,160 @@ export function ModernDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Key Insights */}
+                {/* AI Insights */}
+                <Card className="modern-card">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-primary" />
+                        AI Insights
+                        {loadingAnalytics && (
+                          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        )}
+                      </CardTitle>
+                      {insightData?.data && (
+                        <Badge variant="outline" className="text-xs">
+                          {insightData.data.insights?.length || 0} insights
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Quick Comparison Summary */}
+                    {comparisonData?.data && !loadingAnalytics && (
+                      <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm text-blue-900 flex items-center gap-2">
+                            📊 Month Comparison
+                          </h4>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={handleShowComparison}
+                            className="text-xs text-blue-700 hover:text-blue-900 h-6 px-2"
+                          >
+                            Details →
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-gray-600">Revenue Change:</span>
+                            <div className={`font-medium ${comparisonData.data.growth.revenue_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {comparisonData.data.growth.revenue_growth >= 0 ? '+' : ''}{comparisonData.data.growth.revenue_growth.toFixed(1)}%
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Profit Change:</span>
+                            <div className={`font-medium ${comparisonData.data.growth.profit_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {comparisonData.data.growth.profit_growth >= 0 ? '+' : ''}{comparisonData.data.growth.profit_growth.toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {loadingAnalytics ? (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="animate-pulse">
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-100 rounded w-full"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : insightData?.data ? (
+                      <div className="space-y-4">
+                        {insightData.data.insights?.slice(0, 3).map((insight: any, index: number) => {
+                          const priorityColors = {
+                            high: 'border-l-red-500 bg-red-50 text-red-900',
+                            medium: 'border-l-yellow-500 bg-yellow-50 text-yellow-900',
+                            low: 'border-l-blue-500 bg-blue-50 text-blue-900'
+                          };
+                          
+                          const priorityIcons = {
+                            high: AlertTriangle,
+                            medium: TrendingUp,
+                            low: Target
+                          };
+                          
+                          const IconComponent = priorityIcons[insight.priority as keyof typeof priorityIcons] || Target;
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              className={`p-3 rounded-lg border-l-4 transition-all hover:shadow-sm ${
+                                priorityColors[insight.priority as keyof typeof priorityColors] || priorityColors.low
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <IconComponent className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-medium text-sm">{insight.title}</h4>
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs px-1.5 py-0.5 ${
+                                        insight.priority === 'high' ? 'border-red-300 text-red-700 bg-red-50' :
+                                        insight.priority === 'medium' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
+                                        'border-blue-300 text-blue-700 bg-blue-50'
+                                      }`}
+                                    >
+                                      {insight.priority.toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs leading-relaxed">{insight.message}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        
+                        {insightData.data.recommendations?.length > 0 && (
+                          <div className="mt-4 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                            <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                              <Zap className="h-4 w-4 text-primary" />
+                              Recommendations
+                            </h4>
+                            <ul className="text-xs space-y-1">
+                              {insightData.data.recommendations.slice(0, 3).map((rec: string, index: number) => (
+                                <li key={index} className="flex items-start gap-2">
+                                  <span className="text-primary mt-1">•</span>
+                                  <span className="text-gray-700">{rec}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {insightData.data.metrics && (
+                          <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                            <div className="bg-gray-50 p-2 rounded">
+                              <span className="text-gray-600">Profit Margin</span>
+                              <div className="font-semibold text-sm">
+                                {insightData.data.metrics.profit_margin?.toFixed(1) || 0}%
+                              </div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <span className="text-gray-600">Days Recorded</span>
+                              <div className="font-semibold text-sm">
+                                {insightData.data.metrics.days_recorded || 0}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <MessageCircle className="h-6 w-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-500 mb-2">No insights available</p>
+                        <p className="text-xs text-gray-400">Add earnings data to get AI-powered insights</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
        <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -583,6 +966,15 @@ export function ModernDashboard() {
       
       {/* Support Chatbot */}
       <SupportChatbot />
+      
+      {/* Comparison Modal */}
+      <ComparisonModal 
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        data={comparisonModalData}
+        loading={loadingComparison}
+        selectedMonth={selectedMonth}
+      />
       
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t">

@@ -13,8 +13,8 @@ const {
 } = require("./middleware/security");
 
 // Import Redis service and test connection
-const redisService = require("./services/redisService");
-const { getRedisHealth } = require("./config/redis");
+// const redisService = require("./services/redisService");
+// const { getRedisHealth } = require("./config/redis");
 
 // Import routes
 const authRoutes = require("./routes/auth");
@@ -22,11 +22,13 @@ const profileRoutes = require("./routes/profile");
 const documentRoutes = require("./routes/documents");
 const chatRoutes = require("./routes/chat");
 const businessIdeasRoutes = require("./routes/business-ideas");
-const redisRoutes = require("./routes/redis");
+// const redisRoutes = require("./routes/redis");
 const productsRoutes = require("./routes/products");
 const aiRoutes = require("./routes/ai");
 const visionRoutes = require("./routes/vision");
 const duplicateRoutes = require("./routes/duplicates");
+const revenueRoutes = require("./routes/revenue");
+const comparisonRoutes = require("./routes/comparison");
 
 // Initialize Express app
 const app = express();
@@ -83,11 +85,11 @@ if (config.nodeEnv === "development") {
   app.use(morgan("combined"));
 }
 
-// Enhanced health check endpoint with Redis status
+// Enhanced health check endpoint - Redis commented out
 app.get("/health", async (req, res) => {
   try {
-    // Get Redis health information
-    const redisHealth = await getRedisHealth();
+    // Get Redis health information - commented out
+    // const redisHealth = await getRedisHealth();
 
     res.json({
       success: true,
@@ -96,7 +98,7 @@ app.get("/health", async (req, res) => {
         timestamp: new Date().toISOString(),
         environment: config.nodeEnv,
         version: "1.0.0",
-        redis: redisHealth,
+        redis: { status: "disabled" }, // Mock Redis status
       },
       error: null,
     });
@@ -127,6 +129,8 @@ app.get("/api", (req, res) => {
         businessIdeas: "/api/business-ideas",
         redis: "/api/redis",
         duplicates: "/api/duplicates",
+        revenue: "/api/revenue",
+        comparison: "/api/comparison",
       },
       docs: "See README.md for detailed API documentation",
     },
@@ -144,7 +148,9 @@ app.use("/api/products", productsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/vision", rateLimits.aiChat, visionRoutes);
 app.use("/api/duplicates", duplicateRoutes);
-app.use("/api/redis", redisRoutes);
+app.use("/api/revenue", revenueRoutes);
+app.use("/api/comparison", comparisonRoutes);
+//app.use("/api/redis", redisRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -157,43 +163,36 @@ const PORT = config.port;
 
 const startServer = async () => {
   try {
-    // Test Redis connection
-    const redisConnected = await redisService.getConnectionStatus();
-    let redisHealth = { status: "unknown" };
+    // Test Redis connection - commented out
+    // const redisConnected = await redisService.getConnectionStatus();
+    // let redisHealth = { status: "unknown" };
 
-    if (redisConnected === "connected") {
-      console.log("✅ Redis connected successfully");
-      redisHealth = await getRedisHealth();
-    } else {
-      console.warn(
-        "⚠️ Redis connection failed - falling back to in-memory storage"
-      );
-    }
+    // if (redisConnected === "connected") {
+    //   console.log("✅ Redis connected successfully");
+    //   redisHealth = await getRedisHealth();
+    // } else {
+    //   console.warn(
+    //     "⚠️ Redis connection failed - falling back to in-memory storage"
+    //   );
+    // }
 
     const server = app.listen(PORT, () => {
       console.log(`
 🚀 VirtualCFO Backend API Server Started!
-    
+
 📍 Server: http://localhost:${PORT}
 📊 Health: http://localhost:${PORT}/health
 📖 API Info: http://localhost:${PORT}/api
 🌍 Environment: ${config.nodeEnv}
-🗄️ Redis Status: ${redisConnected}
-${
-  redisConnected === "connected"
-    ? `   • Redis Version: ${redisHealth.version || "N/A"}
-   • Connected Clients: ${redisHealth.connectedClients || "N/A"}
-   • Memory Usage: ${redisHealth.usedMemory || "N/A"}`
-    : ""
-}
-    
+🗄️ Redis Status: disabled
+
 📋 Available Endpoints:
    • Profile: /api/profile
    • Documents: /api/documents
    • AI Chat: /api/chat
    • Business Ideas: /api/business-ideas
    • Redis: /api/redis (Admin only)
-    
+
 🔧 Ready for requests!
       `);
     });

@@ -1,5 +1,8 @@
 const { supabase } = require("../config/supabase");
-const redisService = require("../services/redisService");
+// const redisService = require("../services/redisService");
+
+// Redis is commented out - authentication will work without Redis features
+console.log("⚠️ Redis is disabled in auth middleware - rate limiting and token blacklisting disabled");
 
 // Helper function to validate token format
 const validateTokenFormat = (token) => {
@@ -34,26 +37,26 @@ const authenticateToken = async (req, res, next) => {
     // Create a more detailed identifier for rate limiting
     const authIdentifier = `${clientIP}:auth:${userAgent.substring(0, 50)}`;
 
-    // Rate limiting check using Redis with enhanced security
-    const rateLimitResult = await redisService.checkRateLimit(
-      authIdentifier,
-      50, // 50 requests per minute for auth
-      60000 // 1 minute window
-    );
+    // Rate limiting check disabled - Redis commented out
+    // const rateLimitResult = await redisService.checkRateLimit(
+    //   authIdentifier,
+    //   50, // 50 requests per minute for auth
+    //   60000 // 1 minute window
+    // );
 
-    if (!rateLimitResult.allowed) {
-      logSecurityEvent("RATE_LIMIT_EXCEEDED", {
-        identifier: authIdentifier.substring(0, 50),
-        ip: clientIP,
-        userAgent: userAgent.substring(0, 50),
-      });
+    // if (!rateLimitResult.allowed) {
+    //   logSecurityEvent("RATE_LIMIT_EXCEEDED", {
+    //     identifier: authIdentifier.substring(0, 50),
+    //     ip: clientIP,
+    //     userAgent: userAgent.substring(0, 50),
+    //   });
 
-      return res.status(429).json({
-        success: false,
-        error: "Too many authentication attempts. Please try again later.",
-        data: null,
-      });
-    }
+    //   return res.status(429).json({
+    //     success: false,
+    //     error: "Too many authentication attempts. Please try again later.",
+    //     data: null,
+    //   });
+    // }
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       logSecurityEvent("MISSING_AUTH_HEADER", {
@@ -84,21 +87,21 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Check if token is blacklisted using Redis with enhanced security
-    const isBlacklisted = await redisService.isTokenBlacklisted(token);
-    if (isBlacklisted) {
-      logSecurityEvent("BLACKLISTED_TOKEN_USED", {
-        ip: clientIP,
-        userAgent: userAgent.substring(0, 50),
-        tokenId: token.substring(0, 20) + "...",
-      });
+    // Check if token is blacklisted disabled - Redis commented out
+    // const isBlacklisted = await redisService.isTokenBlacklisted(token);
+    // if (isBlacklisted) {
+    //   logSecurityEvent("BLACKLISTED_TOKEN_USED", {
+    //     ip: clientIP,
+    //     userAgent: userAgent.substring(0, 50),
+    //     tokenId: token.substring(0, 20) + "...",
+    //   });
 
-      return res.status(401).json({
-        success: false,
-        error: "Token has been revoked",
-        data: null,
-      });
-    }
+    //   return res.status(401).json({
+    //     success: false,
+    //     error: "Token has been revoked",
+    //     data: null,
+    //   });
+    // }
 
     // Verify the token with Supabase
     const {
@@ -173,9 +176,9 @@ const optionalAuth = async (req, res, next) => {
 
       // Validate token format
       if (validateTokenFormat(token)) {
-        // Check if token is blacklisted using Redis with enhanced security
-        const isBlacklisted = await redisService.isTokenBlacklisted(token);
-        if (!isBlacklisted) {
+        // Check if token is blacklisted disabled - Redis commented out
+        // const isBlacklisted = await redisService.isTokenBlacklisted(token);
+        // if (!isBlacklisted) {
           const {
             data: { user },
             error,
@@ -194,7 +197,7 @@ const optionalAuth = async (req, res, next) => {
               authenticatedAt: new Date().toISOString(),
             };
           }
-        }
+        // }
       }
     }
 
@@ -283,7 +286,8 @@ const revokeToken = async (req, res, next) => {
     // Validate token format before attempting to blacklist
     if (validateTokenFormat(token)) {
       // Blacklist token using Redis with enhanced security
-      const result = await redisService.blacklistToken(token);
+      // const result = await redisService.blacklistToken(token);
+      const result = false; // Redis disabled
 
       if (result) {
         logSecurityEvent("TOKEN_REVOKED", {
@@ -338,41 +342,56 @@ const revokeToken = async (req, res, next) => {
   }
 };
 
-// Rate limiting middleware for general API calls using Redis with enhanced security
+// Rate limiting middleware disabled - Redis commented out
+// const rateLimitAPI = (maxRequests = 100, windowMs = 60000) => {
+//   return async (req, res, next) => {
+//     const clientIP = req.ip || req.connection.remoteAddress || "unknown";
+//     // Create a more detailed identifier that includes user agent for better security
+//     const userAgent = req.get("User-Agent") || "unknown";
+//     const identifier = req.user
+//       ? `user:${req.user.id}`
+//       : `ip:${clientIP}:ua:${userAgent.substring(0, 100)}`;
+
+//     const rateLimitResult = await redisService.checkRateLimit(
+//       identifier,
+//       maxRequests,
+//       windowMs
+//     );
+
+//     if (!rateLimitResult.allowed) {
+//       logSecurityEvent("API_RATE_LIMIT_EXCEEDED", {
+//         identifier: identifier.substring(0, 50),
+//         userId: req.user?.id || "anonymous",
+//         ip: clientIP,
+//       });
+
+//       return res.status(429).json({
+//         success: false,
+//         error: "Rate limit exceeded. Please try again later.",
+//         data: null,
+//       });
+//     }
+
+//     // Add rate limit info to response headers
+//     res.set({
+//       "X-RateLimit-Limit": maxRequests,
+//       "X-RateLimit-Remaining": rateLimitResult.remaining,
+//       "X-RateLimit-Reset": new Date(rateLimitResult.resetTime).toUTCString(),
+//     });
+
+//     next();
+//   };
+// };
+
+// Mock rateLimitAPI function - always allows requests without Redis
 const rateLimitAPI = (maxRequests = 100, windowMs = 60000) => {
   return async (req, res, next) => {
-    const clientIP = req.ip || req.connection.remoteAddress || "unknown";
-    // Create a more detailed identifier that includes user agent for better security
-    const userAgent = req.get("User-Agent") || "unknown";
-    const identifier = req.user
-      ? `user:${req.user.id}`
-      : `ip:${clientIP}:ua:${userAgent.substring(0, 100)}`;
-
-    const rateLimitResult = await redisService.checkRateLimit(
-      identifier,
-      maxRequests,
-      windowMs
-    );
-
-    if (!rateLimitResult.allowed) {
-      logSecurityEvent("API_RATE_LIMIT_EXCEEDED", {
-        identifier: identifier.substring(0, 50),
-        userId: req.user?.id || "anonymous",
-        ip: clientIP,
-      });
-
-      return res.status(429).json({
-        success: false,
-        error: "Rate limit exceeded. Please try again later.",
-        data: null,
-      });
-    }
-
-    // Add rate limit info to response headers
+    // Mock rate limiting - always allow
+    // Add mock rate limit info to response headers
     res.set({
       "X-RateLimit-Limit": maxRequests,
-      "X-RateLimit-Remaining": rateLimitResult.remaining,
-      "X-RateLimit-Reset": new Date(rateLimitResult.resetTime).toUTCString(),
+      "X-RateLimit-Remaining": maxRequests - 1,
+      "X-RateLimit-Reset": new Date(Date.now() + windowMs).toUTCString(),
     });
 
     next();
