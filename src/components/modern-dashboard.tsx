@@ -325,7 +325,6 @@ export function ModernDashboard() {
     { id: "advanced", label: "Advanced", icon: BarChart3 },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "inventory", label: "Inventory", icon: FileText, isRoute: true, route: "/inventory" },
-    { id: "business-trends", label: "Business Trends", icon: TrendingUp, isRoute: true, route: "/business-trends" },
     { id: "profile", label: "Profile", icon: User },
     { id: "contact", label: "Contact Us", icon: MessageCircle, isRoute: true, route: "/contact" },
     { id: "settings", label: "Settings", icon: Settings },
