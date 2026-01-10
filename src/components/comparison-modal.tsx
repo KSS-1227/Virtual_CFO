@@ -64,7 +64,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
               </div>
             ))}
           </div>
-        ) : data ? (
+        ) : data && !data.fallback ? (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -72,15 +72,15 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                 <div className="text-sm text-gray-600 mb-1">Revenue Change</div>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold">
-                    {formatCurrency(data.changes.revenue.absolute)}
+                    {formatCurrency(data.changes?.revenue?.absolute || 0)}
                   </span>
-                  <Badge variant={data.changes.revenue.percentage >= 0 ? "default" : "destructive"}>
-                    {data.changes.revenue.percentage >= 0 ? (
+                  <Badge variant={(data.changes?.revenue?.percentage || 0) >= 0 ? "default" : "destructive"}>
+                    {(data.changes?.revenue?.percentage || 0) >= 0 ? (
                       <TrendingUp className="h-3 w-3 mr-1" />
                     ) : (
                       <TrendingDown className="h-3 w-3 mr-1" />
                     )}
-                    {formatPercentage(data.changes.revenue.percentage)}
+                    {formatPercentage(data.changes?.revenue?.percentage || 0)}
                   </Badge>
                 </div>
               </div>
@@ -89,15 +89,15 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                 <div className="text-sm text-gray-600 mb-1">Profit Change</div>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold">
-                    {formatCurrency(data.changes.profit.absolute)}
+                    {formatCurrency(data.changes?.profit?.absolute || 0)}
                   </span>
-                  <Badge variant={data.changes.profit.percentage >= 0 ? "default" : "destructive"}>
-                    {data.changes.profit.percentage >= 0 ? (
+                  <Badge variant={(data.changes?.profit?.percentage || 0) >= 0 ? "default" : "destructive"}>
+                    {(data.changes?.profit?.percentage || 0) >= 0 ? (
                       <TrendingUp className="h-3 w-3 mr-1" />
                     ) : (
                       <TrendingDown className="h-3 w-3 mr-1" />
                     )}
-                    {formatPercentage(data.changes.profit.percentage)}
+                    {formatPercentage(data.changes?.profit?.percentage || 0)}
                   </Badge>
                 </div>
               </div>
@@ -106,15 +106,15 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                 <div className="text-sm text-gray-600 mb-1">Margin Change</div>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold">
-                    {data.changes.profit_margin.absolute.toFixed(1)}pp
+                    {(data.changes?.profit_margin?.absolute || 0).toFixed(1)}pp
                   </span>
-                  <Badge variant={data.changes.profit_margin.absolute >= 0 ? "default" : "destructive"}>
-                    {data.changes.profit_margin.absolute >= 0 ? (
+                  <Badge variant={(data.changes?.profit_margin?.absolute || 0) >= 0 ? "default" : "destructive"}>
+                    {(data.changes?.profit_margin?.absolute || 0) >= 0 ? (
                       <TrendingUp className="h-3 w-3 mr-1" />
                     ) : (
                       <TrendingDown className="h-3 w-3 mr-1" />
                     )}
-                    {formatPercentage(data.changes.profit_margin.percentage)}
+                    {formatPercentage(data.changes?.profit_margin?.percentage || 0)}
                   </Badge>
                 </div>
               </div>
@@ -126,59 +126,61 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
             </div>
 
             {/* Detailed Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Current Month ({data.current.month_name})</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Revenue:</span>
-                    <span className="font-medium">{formatCurrency(data.current.revenue)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Expenses:</span>
-                    <span className="font-medium">{formatCurrency(data.current.expenses)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Profit:</span>
-                    <span className="font-medium">{formatCurrency(data.current.profit)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Profit Margin:</span>
-                    <span className="font-medium">{data.current.profit_margin.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Days Recorded:</span>
-                    <span className="font-medium">{data.current.days_recorded}</span>
+            {data.current && data.previous && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-lg">Current Month ({data.current.month_name || 'Current'})</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Revenue:</span>
+                      <span className="font-medium">{formatCurrency(data.current.revenue || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Expenses:</span>
+                      <span className="font-medium">{formatCurrency(data.current.expenses || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Profit:</span>
+                      <span className="font-medium">{formatCurrency(data.current.profit || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Profit Margin:</span>
+                      <span className="font-medium">{(data.current.profit_margin || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Days Recorded:</span>
+                      <span className="font-medium">{data.current.days_recorded || 0}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Previous Month ({data.previous.month_name})</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Revenue:</span>
-                    <span className="font-medium">{formatCurrency(data.previous.revenue)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Expenses:</span>
-                    <span className="font-medium">{formatCurrency(data.previous.expenses)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Profit:</span>
-                    <span className="font-medium">{formatCurrency(data.previous.profit)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Profit Margin:</span>
-                    <span className="font-medium">{data.previous.profit_margin.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Days Recorded:</span>
-                    <span className="font-medium">{data.previous.days_recorded}</span>
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-lg">Previous Month ({data.previous.month_name || 'Previous'})</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Revenue:</span>
+                      <span className="font-medium">{formatCurrency(data.previous.revenue || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Expenses:</span>
+                      <span className="font-medium">{formatCurrency(data.previous.expenses || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Profit:</span>
+                      <span className="font-medium">{formatCurrency(data.previous.profit || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Profit Margin:</span>
+                      <span className="font-medium">{(data.previous.profit_margin || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Days Recorded:</span>
+                      <span className="font-medium">{data.previous.days_recorded || 0}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* AI Insights */}
             {data.insights && data.insights.length > 0 && (
@@ -211,7 +213,9 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-500">No comparison data available</p>
+            <p className="text-gray-500">
+              {data?.message || "No comparison data available"}
+            </p>
           </div>
         )}
       </DialogContent>
