@@ -31,7 +31,8 @@ import {
   Home,
   User,
   LogOut,
-  Brain
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -354,9 +355,7 @@ export function ModernDashboard() {
     { id: "upload", label: "AI Upload", icon: Zap },
     { id: "advanced", label: "Advanced", icon: BarChart3 },
     { id: "reports", label: "Reports", icon: FileText },
-    { id: "insights", label: "Insights", icon: Eye },
     { id: "inventory", label: "Inventory", icon: FileText, isRoute: true, route: "/inventory" },
-    { id: "business-trends", label: "Business Trends", icon: TrendingUp, isRoute: true, route: "/business-trends" },
     { id: "profile", label: "Profile", icon: User },
     { id: "contact", label: "Contact Us", icon: MessageCircle, isRoute: true, route: "/contact" },
     { id: "settings", label: "Settings", icon: Settings },
@@ -379,7 +378,7 @@ export function ModernDashboard() {
           
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">₹</span>
+              <Sparkles className="text-white h-5 w-5" />
             </div>
             <div>
               <h1 className="text-lg font-semibold">VirtualCFO</h1>
@@ -806,7 +805,6 @@ export function ModernDashboard() {
             </div>
           )}
           {activeTab === "reports" && <ReportGenerator businessData={businessData} />}
-          {activeTab === "insights" && <InsightsPanel />}
           {activeTab === "profile" && <ProfileView />}
         </main>
       </div>
