@@ -64,7 +64,6 @@ const MultiModalUploader = () => {
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceResult, setVoiceResult] = useState<any>(null);
-  const [businessAnalysis, setBusinessAnalysis] = useState<string | null>(null);
   const [cameraTimeout, setCameraTimeout] = useState<NodeJS.Timeout | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -184,23 +183,7 @@ const MultiModalUploader = () => {
     }
   };
 
-  // Business photo analysis
-  const analyzeBusinessPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    setIsProcessing(true);
-    try {
-      const result = await multiModalAPI.analyzeBusinessPhoto(file);
-      if (result.success) {
-        setBusinessAnalysis(result.data.analysis);
-      }
-    } catch (error) {
-      console.error('Business analysis error:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   useEffect(() => {
     return () => {
@@ -221,7 +204,7 @@ const MultiModalUploader = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="camera" className="flex items-center gap-2">
             <Camera className="h-4 w-4" />
             Camera
@@ -233,10 +216,6 @@ const MultiModalUploader = () => {
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             Upload
-          </TabsTrigger>
-          <TabsTrigger value="business" className="flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            Business
           </TabsTrigger>
         </TabsList>
 
@@ -364,53 +343,7 @@ const MultiModalUploader = () => {
           </Card>
         </TabsContent>
 
-        {/* Business Analysis Tab */}
-        <TabsContent value="business" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Business Intelligence
-              </CardTitle>
-              <CardDescription>
-                Take photos of your store, inventory, or workspace for AI insights
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <Eye className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 mb-4">Upload business photos for analysis</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={analyzeBusinessPhoto}
-                  className="hidden"
-                  id="business-upload"
-                />
-                <Button asChild>
-                  <label htmlFor="business-upload" className="cursor-pointer">
-                    Analyze Business Photo
-                  </label>
-                </Button>
-              </div>
 
-              {businessAnalysis && (
-                <Card className="mt-6">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Business Analysis</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose max-w-none">
-                      <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg">
-                        {businessAnalysis}
-                      </pre>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Results Display */}
