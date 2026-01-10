@@ -324,7 +324,6 @@ export function ModernDashboard() {
     { id: "upload", label: "AI Upload", icon: Zap },
     { id: "advanced", label: "Advanced", icon: BarChart3 },
     { id: "reports", label: "Reports", icon: FileText },
-    { id: "insights", label: "Insights", icon: Eye },
     { id: "inventory", label: "Inventory", icon: FileText, isRoute: true, route: "/inventory" },
     { id: "business-trends", label: "Business Trends", icon: TrendingUp, isRoute: true, route: "/business-trends" },
     { id: "profile", label: "Profile", icon: User },
@@ -676,7 +675,6 @@ export function ModernDashboard() {
           {activeTab === "advanced" && <AdvancedDashboard />}
           {activeTab === "upload" && <MultiModalUploader />}
           {activeTab === "reports" && <ReportGenerator businessData={businessData} />}
-          {activeTab === "insights" && <InsightsPanel />}
           {activeTab === "profile" && <ProfileView />}
         </main>
       </div>
