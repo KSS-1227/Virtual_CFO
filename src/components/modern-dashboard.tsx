@@ -639,27 +639,6 @@ export function ModernDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* AI Insights */}
-                <Card className="modern-card">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Brain className="h-4 w-4 text-primary" />
-                        AI Insights
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-6">
-                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <MessageCircle className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <p className="text-sm text-gray-500 mb-2">No insights available</p>
-                      <p className="text-xs text-gray-400">Add earnings data to get AI-powered insights</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
        <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
