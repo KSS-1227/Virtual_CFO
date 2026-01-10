@@ -5,6 +5,7 @@ import { ChatInterface } from "@/components/chat-interface";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { profileAPI, chatAPI, handleAPIError, productsAPI, earningsAPI, monthlyRevenueHelpers } from "@/lib/api";
 import { InsightsGenerator } from "@/lib/insights-generator";
@@ -43,6 +44,7 @@ import { InsightsPanel } from "@/components/insights-panel";
 import { ProfileView } from "@/components/profile-view";
 import { ComparisonModal } from "@/components/comparison-modal";
 import { SupportChatbot } from "@/components/support-chatbot";
+import { UploadTest } from "@/components/upload-test";
 
 interface ProfileData {
   business_name?: string;
@@ -90,6 +92,9 @@ interface MonthlyRevenueData {
   monthName: string;
   daysRecorded: number;
   growthPercentage: number;
+  firstEntryDate?: string | null;
+  lastEntryDate?: string | null;
+  dateRange?: string;
 }
 
 interface BusinessDataExtended {
@@ -129,6 +134,11 @@ export function ModernDashboard() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  
+  // Comparison modal state
+  const [showComparison, setShowComparison] = useState<boolean>(false);
+  const [comparisonModalData, setComparisonModalData] = useState<any>(null);
+  const [loadingComparison, setLoadingComparison] = useState<boolean>(false);
 
   const loadProfileData = async () => {
     try {
@@ -229,6 +239,27 @@ export function ModernDashboard() {
         description: "Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Handle comparison modal
+  const handleShowComparison = async () => {
+    setShowComparison(true);
+    setLoadingComparison(true);
+    try {
+      // Import comparisonAPI if not already imported
+      const { comparisonAPI } = await import('@/lib/api');
+      const result = await comparisonAPI.getDetailedComparison(selectedMonth);
+      setComparisonModalData(result.data);
+    } catch (error) {
+      console.error('Error fetching comparison data:', error);
+      toast({
+        title: "Error Loading Comparison",
+        description: "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingComparison(false);
     }
   };
 
@@ -455,14 +486,67 @@ export function ModernDashboard() {
           )}
 
           {/* Health Score & Quick Stats */}
-          <div className="flex items-center justify-between mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-800">Key Metrics</h2>
-            <div className="flex items-center gap-3">
-              <MonthSelector 
-                value={selectedMonth} 
-                onChange={setSelectedMonth} 
-                userCreatedAt={userCreatedAt || undefined}
-              />
+          <div className="mb-6">
+            {/* Header Section with improved layout */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Key Metrics</h2>
+                <p className="text-sm text-gray-600 mt-1">Track your business performance and growth</p>
+              </div>
+              
+              {/* Controls Section */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
+                <MonthSelector 
+                  value={selectedMonth} 
+                  onChange={setSelectedMonth} 
+                  userCreatedAt={userCreatedAt || undefined}
+                />
+                
+                {/* Enhanced Compare Button */}
+                <div className="relative flex flex-col gap-2">
+                  <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Analysis
+                  </label>
+                  <div className="relative">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            onClick={handleShowComparison}
+                            disabled={loadingComparison}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-3 rounded-lg font-medium transform hover:scale-105 active:scale-95 h-[50px] w-full"
+                          >
+                            {loadingComparison ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                <span className="hidden sm:inline">Analyzing...</span>
+                                <span className="sm:hidden">Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 0 01-2-2z" />
+                                </svg>
+                                <span className="hidden sm:inline">Compare Months</span>
+                                <span className="sm:hidden">Compare</span>
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-sm">Compare current month performance with previous periods</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {businessData.monthlyRevenue > 0 && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -527,7 +611,7 @@ export function ModernDashboard() {
                 subtitle={
                   earningsLoading ? "Loading..." : 
                   businessData.monthlyRevenueData.source === 'calculated' 
-                    ? `${businessData.monthlyRevenueData.monthName} (${businessData.monthlyRevenueData.daysRecorded} days recorded)`
+                    ? businessData.monthlyRevenueData.dateRange || `${businessData.monthlyRevenueData.monthName} (${businessData.monthlyRevenueData.daysRecorded} days recorded)`
                     : `${businessData.monthlyRevenueData.monthName} (Estimated)`
                 }
               />
@@ -559,6 +643,48 @@ export function ModernDashboard() {
               />
             </div>
           </div>
+
+          {/* Comparison Insights CTA */}
+          {businessData.monthlyRevenue > 0 && (
+            <Card className="bg-gradient-to-r from-slate-50 to-blue-50 border-slate-200 hover:shadow-md transition-all duration-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">Performance Analysis</h3>
+                      <p className="text-xs text-gray-600">Compare this month's performance with previous periods to identify trends</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleShowComparison}
+                    disabled={loadingComparison}
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  >
+                    {loadingComparison ? (
+                      <>
+                        <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin mr-1"></div>
+                        Loading
+                      </>
+                    ) : (
+                      <>
+                        View Analysis
+                        <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Dynamic Content Based on Active Tab */}
           {activeTab === "overview" && (
@@ -673,7 +799,12 @@ export function ModernDashboard() {
           )}
           {activeTab === "chat" && <ChatInterface />}
           {activeTab === "advanced" && <AdvancedDashboard />}
-          {activeTab === "upload" && <MultiModalUploader />}
+          {activeTab === "upload" && (
+            <div className="space-y-6">
+              <UploadTest />
+              <MultiModalUploader />
+            </div>
+          )}
           {activeTab === "reports" && <ReportGenerator businessData={businessData} />}
           {activeTab === "insights" && <InsightsPanel />}
           {activeTab === "profile" && <ProfileView />}
@@ -682,6 +813,15 @@ export function ModernDashboard() {
       
       {/* Support Chatbot */}
       <SupportChatbot />
+      
+      {/* Comparison Modal */}
+      <ComparisonModal 
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        data={comparisonModalData}
+        loading={loadingComparison}
+        selectedMonth={selectedMonth}
+      />
       
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t">

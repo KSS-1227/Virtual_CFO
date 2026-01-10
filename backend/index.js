@@ -36,15 +36,18 @@ const vectorRoutes = require("./routes/vector");
 const inventoryRoutes = require("./routes/inventory");
 const professionalInventoryRoutes = require("./routes/professionalInventory");
 const notificationRoutes = require("./routes/notifications");
+const revenueRoutes = require("./routes/revenue");
+const comparisonRoutes = require("./routes/comparison");
 // const redisRoutes = require("./routes/redis"); // Commented out
-// Optional embedding worker
+// Optional embedding worker - DISABLED
 let EmbeddingWorker = null;
-try {
-  const embeddingModule = require("./services/embeddingWorker");
-  EmbeddingWorker = embeddingModule.EmbeddingWorker;
-} catch (err) {
-  console.log('EmbeddingWorker not available:', err.message);
-}
+// try {
+//   const embeddingModule = require("./services/embeddingWorker");
+//   EmbeddingWorker = embeddingModule.EmbeddingWorker;
+// } catch (err) {
+//   console.log('EmbeddingWorker not available:', err.message);
+// }
+console.log('⚠️ EmbeddingWorker disabled to avoid Redis connection issues');
 
 // Initialize Express app
 const app = express();
@@ -172,6 +175,8 @@ app.use("/api/vector", vectorRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/inventory/professional", professionalInventoryRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/revenue", revenueRoutes);
+app.use("/api/comparison", comparisonRoutes);
 // app.use("/api/redis", redisRoutes); // Commented out
 
 // 404 handler

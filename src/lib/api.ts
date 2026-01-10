@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Helper function to get auth token
 const getAuthToken = async () => {
@@ -35,12 +35,49 @@ const apiCall = async (endpoint: string, options: RequestInit = {}) => {
 
 // Profile API
 export const profileAPI = {
-  // Get user profile
+  // Get user profile with Supabase fallback
   getProfile: async () => {
-    return apiCall('/api/profile');
+    try {
+      // Try backend API first
+      return await apiCall('/api/profile');
+    } catch (error) {
+      console.log('Backend API failed, using Supabase fallback for profile');
+      
+      // Fallback to direct Supabase query
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      const { data, error: supabaseError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (supabaseError) {
+        console.error('Supabase profile query error:', supabaseError);
+        // Return empty profile if no profile exists yet
+        if (supabaseError.code === 'PGRST116') {
+          return { 
+            success: true, 
+            data: {
+              business_name: null,
+              owner_name: null,
+              business_type: null,
+              location: null,
+              monthly_revenue: null,
+              monthly_expenses: null,
+              preferred_language: 'en'
+            }
+          };
+        }
+        throw new Error(supabaseError.message);
+      }
+      
+      return { success: true, data };
+    }
   },
 
-  // Create or update profile
+  // Create or update profile with Supabase fallback
   updateProfile: async (profileData: {
     business_name: string;
     owner_name: string;
@@ -50,15 +87,75 @@ export const profileAPI = {
     monthly_expenses: number;
     preferred_language: string;
   }) => {
-    return apiCall('/api/profile', {
-      method: 'POST',
-      body: JSON.stringify(profileData),
-    });
+    try {
+      // Try backend API first
+      return await apiCall('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify(profileData),
+      });
+    } catch (error) {
+      console.log('Backend API failed, using Supabase fallback for profile update');
+      
+      // Fallback to direct Supabase query
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      const { data, error: supabaseError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          ...profileData,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (supabaseError) throw new Error(supabaseError.message);
+      
+      return { success: true, data };
+    }
   },
 
-  // Get profile statistics
+  // Get profile statistics with Supabase fallback
   getProfileStats: async () => {
-    return apiCall('/api/profile/stats');
+    try {
+      // Try backend API first
+      return await apiCall('/api/profile/stats');
+    } catch (error) {
+      console.log('Backend API failed, using Supabase fallback for profile stats');
+      
+      // Fallback to direct Supabase query with basic stats calculation
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      // Get profile data
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('monthly_revenue, monthly_expenses')
+        .eq('id', user.id)
+        .single();
+      
+      // Get document count
+      const { count: documentCount } = await supabase
+        .from('documents')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      // Calculate basic stats
+      const monthlyRevenue = profile?.monthly_revenue || 0;
+      const monthlyExpenses = profile?.monthly_expenses || 0;
+      const profitMargin = monthlyRevenue > 0 ? 
+        ((monthlyRevenue - monthlyExpenses) / monthlyRevenue) * 100 : 0;
+      
+      return {
+        success: true,
+        data: {
+          profit_margin: Math.round(profitMargin * 10) / 10,
+          total_documents: documentCount || 0,
+          last_update: new Date().toISOString()
+        }
+      };
+    }
   },
 };
 
@@ -352,6 +449,10 @@ export const earningsAPI = {
       const totalProfit = totalIncome - totalInventoryCost;
       const daysRecorded = earnings?.length || 0;
       
+      // Get first and last entry dates for date range display
+      const firstEntryDate = earnings && earnings.length > 0 ? earnings[earnings.length - 1].earning_date : null;
+      const lastEntryDate = earnings && earnings.length > 0 ? earnings[0].earning_date : null;
+      
       const monthNames = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
@@ -369,6 +470,8 @@ export const earningsAPI = {
             total_inventory_cost: totalInventoryCost,
             total_profit: totalProfit,
             days_recorded: daysRecorded,
+            first_entry_date: firstEntryDate,
+            last_entry_date: lastEntryDate,
             avg_daily_income: daysRecorded > 0 ? totalIncome / daysRecorded : 0,
             avg_daily_profit: daysRecorded > 0 ? totalProfit / daysRecorded : 0,
             growth_percentage: 0 // We don't have previous month data for comparison
@@ -561,7 +664,40 @@ export const productsAPI = {
   },
 
   getRecommendations: async () => {
-    return apiCall('/api/products/recommendations');
+    try {
+      // Try backend API first
+      return await apiCall('/api/products/recommendations');
+    } catch (error) {
+      console.log('Backend API failed, using fallback for product recommendations');
+      
+      // Return some sample recommendations as fallback
+      return {
+        success: true,
+        data: [
+          {
+            id: 1,
+            name: "Smart Inventory Manager",
+            description: "Reduce overstock and improve inventory turnover automatically",
+            price: 1999,
+            category: "Inventory",
+          },
+          {
+            id: 2,
+            name: "AI Sales Predictor",
+            description: "Predict next month sales using AI-driven insights",
+            price: 2999,
+            category: "Sales",
+          },
+          {
+            id: 3,
+            name: "Expense Optimization Tool",
+            description: "Identify hidden costs and optimize monthly expenses",
+            price: 1499,
+            category: "Finance",
+          },
+        ]
+      };
+    }
   },
 
   updateRecommendationInteraction: async (
@@ -849,18 +985,47 @@ export const duplicateAPI = {
 
 // Monthly Revenue Helper Functions
 export const monthlyRevenueHelpers = {
+  // Format date range for display
+  formatDateRange: (firstDate: string | null, lastDate: string | null, monthName: string) => {
+    if (!firstDate || !lastDate) {
+      return monthName;
+    }
+    
+    const first = new Date(firstDate);
+    const last = new Date(lastDate);
+    
+    // If same date, just show the single date
+    if (firstDate === lastDate) {
+      return `${monthName} ${last.getDate()}`;
+    }
+    
+    // If different dates, show range
+    const firstDay = first.getDate();
+    const lastDay = last.getDate();
+    
+    return `${monthName} ${firstDay}-${lastDay}`;
+  },
+
   // Extract current month revenue from earnings summary
   getCurrentMonthRevenue: (summaryData: any) => {
     try {
       const monthlyTotals = summaryData?.summary?.monthly_totals || summaryData?.monthly_totals;
       if (monthlyTotals && monthlyTotals.length > 0) {
+        const monthData = monthlyTotals[0];
         // First item is the most recent month
         return {
-          amount: Number(monthlyTotals[0].total_income) || 0,
+          amount: Number(monthData.total_income) || 0,
           source: 'calculated',
-          monthName: monthlyTotals[0].month_name || monthlyTotals[0].month,
-          daysRecorded: monthlyTotals[0].days_recorded || 0,
-          growthPercentage: Number(monthlyTotals[0].growth_percentage) || 0
+          monthName: monthData.month_name || monthData.month,
+          daysRecorded: monthData.days_recorded || 0,
+          growthPercentage: Number(monthData.growth_percentage) || 0,
+          firstEntryDate: monthData.first_entry_date || null,
+          lastEntryDate: monthData.last_entry_date || null,
+          dateRange: monthlyRevenueHelpers.formatDateRange(
+            monthData.first_entry_date, 
+            monthData.last_entry_date, 
+            monthData.month_name || monthData.month
+          )
         };
       }
       return null;
@@ -877,7 +1042,10 @@ export const monthlyRevenueHelpers = {
       source: 'estimated',
       monthName: new Date().toLocaleString('default', { month: 'long' }),
       daysRecorded: 0,
-      growthPercentage: 0
+      growthPercentage: 0,
+      firstEntryDate: null,
+      lastEntryDate: null,
+      dateRange: new Date().toLocaleString('default', { month: 'long' })
     };
   },
 
@@ -895,9 +1063,165 @@ export const monthlyRevenueHelpers = {
 
 // Comparison API
 export const comparisonAPI = {
-  // Get detailed month comparison
-  getDetailedComparison: async (month: string) => {
-    return apiCall(`/api/comparison/detailed?month=${month}`);
+  // Get detailed month comparison with Supabase fallback
+  getDetailedComparison: async (month: string, compareWith?: string, type: 'month' | 'quarter' | 'year' = 'month') => {
+    try {
+      // Try backend API first
+      const params = new URLSearchParams({ month, type });
+      if (compareWith) params.append('compare_with', compareWith);
+      return await apiCall(`/api/comparison/detailed?${params}`);
+    } catch (error) {
+      console.log('Backend API failed, using Supabase fallback for comparison');
+      
+      // Fallback to direct Supabase calculation
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      // Get current month data
+      const [year, m] = month.split("-").map(Number);
+      const startOfMonth = `${year}-${String(m).padStart(2, "0")}-01`;
+      const endOfMonth = new Date(year, m, 0).toISOString().split('T')[0];
+      
+      // Get previous month
+      const prevMonth = m === 1 ? 12 : m - 1;
+      const prevYear = m === 1 ? year - 1 : year;
+      const prevStartOfMonth = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`;
+      const prevEndOfMonth = new Date(prevYear, prevMonth, 0).toISOString().split('T')[0];
+      
+      // Fetch both months data
+      const [currentData, previousData] = await Promise.all([
+        supabase
+          .from('earnings')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('earning_date', startOfMonth)
+          .lte('earning_date', endOfMonth),
+        supabase
+          .from('earnings')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('earning_date', prevStartOfMonth)
+          .lte('earning_date', prevEndOfMonth)
+      ]);
+      
+      if (currentData.error || previousData.error) {
+        throw new Error('Failed to fetch earnings data');
+      }
+      
+      // Calculate metrics for both months
+      const calculateMetrics = (earnings: any[]) => {
+        const revenue = earnings?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+        const expenses = earnings?.reduce((sum, e) => sum + (e.inventory_cost || 0), 0) || 0;
+        const profit = revenue - expenses;
+        const daysRecorded = earnings?.length || 0;
+        
+        return {
+          revenue,
+          expenses,
+          profit,
+          profit_margin: revenue > 0 ? (profit / revenue) * 100 : 0,
+          days_recorded: daysRecorded
+        };
+      };
+      
+      const current = calculateMetrics(currentData.data || []);
+      const previous = calculateMetrics(previousData.data || []);
+      
+      // Calculate changes
+      const safePercentChange = (curr: number, prev: number) => {
+        if (prev === 0) return curr > 0 ? 100 : 0;
+        return ((curr - prev) / prev) * 100;
+      };
+      
+      const changes = {
+        revenue: {
+          absolute: current.revenue - previous.revenue,
+          percentage: safePercentChange(current.revenue, previous.revenue)
+        },
+        expenses: {
+          absolute: current.expenses - previous.expenses,
+          percentage: safePercentChange(current.expenses, previous.expenses)
+        },
+        profit: {
+          absolute: current.profit - previous.profit,
+          percentage: safePercentChange(current.profit, previous.profit)
+        },
+        profit_margin: {
+          absolute: current.profit_margin - previous.profit_margin,
+          percentage: safePercentChange(current.profit_margin, previous.profit_margin)
+        }
+      };
+      
+      // Generate basic insights
+      const insights = [];
+      if (changes.revenue.percentage > 10) {
+        insights.push({
+          type: "success",
+          title: "Strong Revenue Growth",
+          message: `Revenue increased by ${changes.revenue.percentage.toFixed(1)}% (₹${changes.revenue.absolute.toLocaleString()})`,
+          priority: "high"
+        });
+      } else if (changes.revenue.percentage < -10) {
+        insights.push({
+          type: "warning",
+          title: "Revenue Decline",
+          message: `Revenue decreased by ${Math.abs(changes.revenue.percentage).toFixed(1)}% (₹${Math.abs(changes.revenue.absolute).toLocaleString()})`,
+          priority: "high"
+        });
+      }
+      
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      
+      return {
+        success: true,
+        data: {
+          current: {
+            month,
+            month_name: monthNames[m - 1] + ' ' + year,
+            ...current
+          },
+          previous: {
+            month: `${prevYear}-${String(prevMonth).padStart(2, "0")}`,
+            month_name: monthNames[prevMonth - 1] + ' ' + prevYear,
+            ...previous
+          },
+          changes,
+          insights
+        }
+      };
+    }
+  },
+
+  // Get multi-month comparison
+  getMultiMonthComparison: async (months: string[]) => {
+    if (months.length < 2 || months.length > 6) {
+      throw new Error('Please provide 2-6 months for comparison');
+    }
+    return apiCall(`/api/comparison/multi-month?months=${months.join(',')}`);
+  },
+
+  // Get custom range comparison
+  getCustomRangeComparison: async (start: string, end: string, compareWithStart: string, compareWithEnd: string) => {
+    const params = new URLSearchParams({
+      start,
+      end,
+      compare_with_start: compareWithStart,
+      compare_with_end: compareWithEnd
+    });
+    return apiCall(`/api/comparison/custom-range?${params}`);
+  },
+
+  // Get quarter comparison
+  getQuarterComparison: async (month: string) => {
+    return apiCall(`/api/comparison/detailed?month=${month}&type=quarter`);
+  },
+
+  // Get year-over-year comparison
+  getYearOverYearComparison: async (month: string) => {
+    return apiCall(`/api/comparison/detailed?month=${month}&type=year`);
   },
 };
 
@@ -922,6 +1246,107 @@ export const revenueAPI = {
   getRevenueInsights: async (month: string) => {
     return apiCall(`/api/revenue/insight?month=${month}`);
   },
+};
+
+// Advanced comparison helpers
+export const comparisonHelpers = {
+  // Generate month options for comparison
+  getMonthOptions: (userCreatedAt?: string, maxMonths: number = 12) => {
+    const options = [];
+    const now = new Date();
+    
+    let startDate: Date;
+    if (userCreatedAt) {
+      const creationDate = new Date(userCreatedAt);
+      startDate = new Date(creationDate.getFullYear(), creationDate.getMonth(), 1);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth() - maxMonths, 1);
+    }
+    
+    const endDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    for (let d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+      const isCurrent = value === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      options.push({ value, label, isCurrent });
+    }
+    
+    return options.reverse();
+  },
+
+  // Get quarter months
+  getQuarterMonths: (year: number, quarter: number) => {
+    const startMonth = (quarter - 1) * 3 + 1;
+    return [
+      `${year}-${String(startMonth).padStart(2, '0')}`,
+      `${year}-${String(startMonth + 1).padStart(2, '0')}`,
+      `${year}-${String(startMonth + 2).padStart(2, '0')}`
+    ];
+  },
+
+  // Get comparison period suggestions
+  getComparisonSuggestions: (selectedMonth: string) => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const date = new Date(year, month - 1, 1);
+    
+    return {
+      previousMonth: {
+        value: `${month === 1 ? year - 1 : year}-${String(month === 1 ? 12 : month - 1).padStart(2, '0')}`,
+        label: 'Previous Month'
+      },
+      sameMonthLastYear: {
+        value: `${year - 1}-${String(month).padStart(2, '0')}`,
+        label: 'Same Month Last Year'
+      },
+      previousQuarter: {
+        value: `${month <= 3 ? year - 1 : year}-${String(month <= 3 ? month + 9 : month - 3).padStart(2, '0')}`,
+        label: 'Previous Quarter'
+      }
+    };
+  },
+
+  // Format comparison results for display
+  formatComparisonData: (data: any) => {
+    const formatCurrency = (value: number) => `₹${value.toLocaleString()}`;
+    const formatPercentage = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+    
+    return {
+      ...data,
+      formatted: {
+        current: {
+          ...data.current,
+          revenue_formatted: formatCurrency(data.current.revenue),
+          profit_formatted: formatCurrency(data.current.profit),
+          expenses_formatted: formatCurrency(data.current.expenses)
+        },
+        previous: {
+          ...data.previous,
+          revenue_formatted: formatCurrency(data.previous.revenue),
+          profit_formatted: formatCurrency(data.previous.profit),
+          expenses_formatted: formatCurrency(data.previous.expenses)
+        },
+        changes: {
+          revenue: {
+            ...data.changes.revenue,
+            absolute_formatted: formatCurrency(data.changes.revenue.absolute),
+            percentage_formatted: formatPercentage(data.changes.revenue.percentage)
+          },
+          profit: {
+            ...data.changes.profit,
+            absolute_formatted: formatCurrency(data.changes.profit.absolute),
+            percentage_formatted: formatPercentage(data.changes.profit.percentage)
+          },
+          expenses: {
+            ...data.changes.expenses,
+            absolute_formatted: formatCurrency(data.changes.expenses.absolute),
+            percentage_formatted: formatPercentage(data.changes.expenses.percentage)
+          }
+        }
+      }
+    };
+  }
 };
 
 // Error handling utility
