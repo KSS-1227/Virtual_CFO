@@ -1,0 +1,48 @@
+[33mba1859b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge branch 'main' of https://github.com/KSS-1227/Virtual_CFO
+[33m4bb8a27[m recommendation
+M	backend/controllers/productsController.js
+M	src/components/modern-dashboard.tsx
+M	src/lib/api.ts
+[33m81fa716[m updated
+M	.env.example
+A	BATCH_PROCESSING_IMPLEMENTATION.md
+A	DUPLICATE_DETECTION_IMPLEMENTATION.md
+A	OPENAI_VISION_IMPLEMENTATION.md
+A	UPLOAD_SECTION_FIX_REPORT.md
+A	backend/controllers/duplicateController.js
+A	backend/controllers/visionController.js
+M	backend/index.js
+A	backend/routes/duplicates.js
+A	backend/routes/vision.js
+M	package-lock.json
+A	src/components/batch-document-processor.tsx
+M	src/components/chat-interface.tsx
+M	src/components/document-uploader.tsx
+M	src/components/support-chatbot.tsx
+A	src/hooks/useBatchProcessing.ts
+M	src/lib/api.ts
+M	src/pages/Earnings.tsx
+A	src/services/autoRevenue.ts
+A	src/services/documentUtils.ts
+A	src/services/duplicateDetection.ts
+A	src/services/openaiVision.ts
+A	src/services/revenueUpdateTest.ts
+A	supabase/migrations/20250120000000_add_document_fingerprints.sql
+A	supabase/migrations/20250120000001_fix_missing_functions.sql
+A	test-vision-api.js
+[33m07ed6cc[m Merge branch 'main' of https://github.com/KSS-1227/Virtual_CFO
+[33m5664a6b[m WIP: local changes to package files
+M	backend/package-lock.json
+M	backend/package.json
+[33m05d640d[m  just started
+M	admin/package-lock.json
+D	backend/.env.example
+M	backend/config/graphRAG.js
+A	backend/controllers/adminController.js
+M	backend/controllers/aiControllerRAG.js
+M	backend/controllers/businessIdeasControllerRAG.js
+M	backend/controllers/productsController.js
+M	backend/package-lock.json
+M	backend/package.json
+A	backend/routes/admin.js
+M	package-lock.json

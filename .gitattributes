@@ -1,0 +1,8 @@
+# Preserve line endings for specific files
+src/components/chat-interface.tsx text eol=lf
+src/components/ui/chat-bubble.tsx text eol=lf
+src/index.css text eol=lf
+src/components/chat-history.tsx text eol=lf
+
+# Default behavior for other files
+* text=auto
