@@ -73,6 +73,11 @@ export class EnhancedChunkedUploader implements ChunkedUploader {
    * Upload a file with dynamic chunking and resumable capability
    */
   async uploadFile(file: File, options: UploadOptions = {}): Promise<UploadResult> {
+    // Validate file input
+    if (!file || typeof file.size !== 'number' || typeof file.name !== 'string') {
+      throw new Error('Invalid file object provided');
+    }
+
     const chunkSize = options.chunkSize || this.calculateOptimalChunkSize(file.size);
     const totalChunks = Math.ceil(file.size / chunkSize);
     const uploadId = this.generateUploadId();
@@ -91,8 +96,32 @@ export class EnhancedChunkedUploader implements ChunkedUploader {
     const results: ChunkResult[] = [];
 
     try {
-      // Process chunks with controlled concurrency
+      // For small files or single chunk, process directly
+      if (totalChunks === 1) {
+        const chunk = file.slice(0, file.size);
+        const result = await this.uploadChunkWithRetry(chunk, 0, 1, uploadId, options);
+        results.push(result);
+        
+        this.updateProgress(uploadState, results, options.onProgress);
+        
+        if (result.success) {
+          await this.finalizeUpload(uploadId);
+        }
+        
+        return {
+          success: result.success,
+          uploadId,
+          fileName: file.name,
+          fileSize: file.size,
+          processingTime: Date.now() - uploadState.startTime,
+          chunks: results,
+          error: result.error
+        };
+      }
+
+      // Process chunks with controlled concurrency for large files
       const chunkPromises: Promise<ChunkResult>[] = [];
+      const activePromises = new Map<Promise<ChunkResult>, number>();
       
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
@@ -100,44 +129,55 @@ export class EnhancedChunkedUploader implements ChunkedUploader {
         const chunk = file.slice(start, end);
         
         // Control concurrency - wait if too many chunks are processing
-        if (chunkPromises.length >= this.maxConcurrentChunks) {
-          const completedChunk = await Promise.race(chunkPromises);
-          results.push(completedChunk);
-          
-          // Remove completed promise from array
-          const completedIndex = chunkPromises.findIndex(p => p === Promise.resolve(completedChunk));
-          if (completedIndex !== -1) {
-            chunkPromises.splice(completedIndex, 1);
-          }
+        while (activePromises.size >= this.maxConcurrentChunks) {
+          const completedPromise = await Promise.race(activePromises.keys());
+          const completedResult = await completedPromise;
+          results.push(completedResult);
+          activePromises.delete(completedPromise);
           
           this.updateProgress(uploadState, results, options.onProgress);
         }
         
         // Add new chunk upload to queue
         const chunkPromise = this.uploadChunkWithRetry(chunk, i, totalChunks, uploadId, options);
-        chunkPromises.push(chunkPromise);
+        activePromises.set(chunkPromise, i);
       }
       
       // Wait for all remaining chunks to complete
-      const remainingResults = await Promise.all(chunkPromises);
-      results.push(...remainingResults);
+      while (activePromises.size > 0) {
+        const completedPromise = await Promise.race(activePromises.keys());
+        const completedResult = await completedPromise;
+        results.push(completedResult);
+        activePromises.delete(completedPromise);
+        
+        this.updateProgress(uploadState, results, options.onProgress);
+      }
+      
+      // Sort results by chunk index to maintain order
+      results.sort((a, b) => a.chunkIndex - b.chunkIndex);
       
       // Final progress update
       uploadState.completedChunks = results.filter(r => r.success).length;
       this.updateProgress(uploadState, results, options.onProgress);
       
-      // Finalize upload on server
-      await this.finalizeUpload(uploadId);
+      // Check if all chunks succeeded
+      const allSuccessful = results.every(r => r.success);
+      
+      if (allSuccessful) {
+        // Finalize upload on server
+        await this.finalizeUpload(uploadId);
+      }
       
       const processingTime = Date.now() - uploadState.startTime;
       
       return {
-        success: true,
+        success: allSuccessful,
         uploadId,
         fileName: file.name,
         fileSize: file.size,
         processingTime,
-        chunks: results
+        chunks: results,
+        error: allSuccessful ? undefined : 'Some chunks failed to upload'
       };
       
     } catch (error) {
@@ -217,6 +257,15 @@ export class EnhancedChunkedUploader implements ChunkedUploader {
         throw new Error(`Chunk upload failed: ${response.statusText}`);
       }
 
+      // Try to parse JSON response, but handle cases where it might not be JSON
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        // If JSON parsing fails, assume success for basic responses
+        responseData = { success: true };
+      }
+
       const uploadTime = Date.now() - startTime;
       
       // Update network speed estimation
@@ -224,7 +273,7 @@ export class EnhancedChunkedUploader implements ChunkedUploader {
 
       return {
         chunkIndex,
-        success: true,
+        success: responseData.success !== false, // Default to true unless explicitly false
         size: chunk.size,
         uploadTime,
         retryCount: 0
@@ -398,16 +447,28 @@ export class EnhancedChunkedUploader implements ChunkedUploader {
    * Finalize upload on server (assemble chunks)
    */
   private async finalizeUpload(uploadId: string): Promise<void> {
-    const response = await fetch('/api/upload/finalize', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ uploadId })
-    });
+    try {
+      const response = await fetch('/api/upload/finalize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ uploadId })
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to finalize upload: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to finalize upload: ${response.statusText}`);
+      }
+
+      // Try to parse response, but don't fail if it's not JSON
+      try {
+        await response.json();
+      } catch (jsonError) {
+        // Ignore JSON parsing errors for finalize endpoint
+      }
+    } catch (error) {
+      // Log error but don't fail the entire upload for finalization issues
+      console.warn('Finalization warning:', error);
     }
   }
 }

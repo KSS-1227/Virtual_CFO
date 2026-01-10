@@ -5,8 +5,9 @@ import { ChatInterface } from "@/components/chat-interface";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { profileAPI, chatAPI, handleAPIError, productsAPI, earningsAPI, monthlyRevenueHelpers, revenueAPI } from "@/lib/api";
+import { profileAPI, chatAPI, handleAPIError, productsAPI, earningsAPI, monthlyRevenueHelpers } from "@/lib/api";
 import { InsightsGenerator } from "@/lib/insights-generator";
 import MonthSelector from "./month-selector";
 import { 
@@ -30,7 +31,8 @@ import {
   Home,
   User,
   LogOut,
-  Brain
+  Brain,
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,7 +45,6 @@ import { InsightsPanel } from "@/components/insights-panel";
 import { ProfileView } from "@/components/profile-view";
 import { ComparisonModal } from "@/components/comparison-modal";
 import { SupportChatbot } from "@/components/support-chatbot";
-import { comparisonAPI } from "@/lib/api";
 
 interface ProfileData {
   business_name?: string;
@@ -91,6 +92,9 @@ interface MonthlyRevenueData {
   monthName: string;
   daysRecorded: number;
   growthPercentage: number;
+  firstEntryDate?: string | null;
+  lastEntryDate?: string | null;
+  dateRange?: string;
 }
 
 interface BusinessDataExtended {
@@ -130,12 +134,6 @@ export function ModernDashboard() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
-  
-  // Revenue analytics state
-  const [comparisonData, setComparisonData] = useState<any>(null);
-  const [breakdownData, setBreakdownData] = useState<any>(null);
-  const [insightData, setInsightData] = useState<any>(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
   
   // Comparison modal state
   const [showComparison, setShowComparison] = useState<boolean>(false);
@@ -193,30 +191,11 @@ export function ModernDashboard() {
         const data = await productsAPI.getRecommendations();
         setProducts(data.data);
       } catch (error) {
-        console.error('Error loading recommendations:', error);
+        console.error("Error loading product recommendations:", error);
       }
     };
     loadRecommendation();
-  }, [])
-
-  // Handle comparison modal
-  const handleShowComparison = async () => {
-    setShowComparison(true);
-    setLoadingComparison(true);
-    try {
-      const result = await comparisonAPI.getDetailedComparison(selectedMonth);
-      setComparisonModalData(result.data);
-    } catch (error) {
-      console.error('Error fetching comparison data:', error);
-      toast({
-        title: "Error Loading Comparison",
-        description: "Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingComparison(false);
-    }
-  };
+  }, []);
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -237,6 +216,27 @@ export function ModernDashboard() {
     }
   };
 
+  // Handle comparison modal
+  const handleShowComparison = async () => {
+    setShowComparison(true);
+    setLoadingComparison(true);
+    try {
+      // Import comparisonAPI if not already imported
+      const { comparisonAPI } = await import('@/lib/api');
+      const result = await comparisonAPI.getDetailedComparison(selectedMonth);
+      setComparisonModalData(result.data);
+    } catch (error) {
+      console.error('Error fetching comparison data:', error);
+      toast({
+        title: "Error Loading Comparison",
+        description: "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingComparison(false);
+    }
+  };
+
   // Load profile data on component mount and when switching tabs
   useEffect(() => {
     loadProfileData();
@@ -254,70 +254,6 @@ export function ModernDashboard() {
   // Refresh earnings data when selected month changes
   useEffect(() => {
     loadEarningsData(selectedMonth);
-  }, [selectedMonth]);
-
-  // Fetch analytics data when selected month changes
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchAnalytics() {
-      console.log('🔄 Fetching analytics for month:', selectedMonth);
-      setLoadingAnalytics(true);
-      try {
-        // Check if user is authenticated
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          console.log('❌ No user session found');
-          if (isMounted) {
-            setComparisonData(null);
-            setBreakdownData(null);
-            setInsightData(null);
-          }
-          return;
-        }
-        
-        console.log('✅ User authenticated, fetching revenue data...');
-        
-        const [compareResult, breakdownResult, insightResult] = await Promise.allSettled([
-          revenueAPI.getRevenueComparison(selectedMonth),
-          revenueAPI.getRevenueBreakdown(selectedMonth),
-          revenueAPI.getRevenueInsights(selectedMonth),
-        ]);
-
-        console.log('📊 API Results:', {
-          comparison: compareResult.status,
-          breakdown: breakdownResult.status,
-          insights: insightResult.status
-        });
-
-        if (isMounted) {
-          setComparisonData(compareResult.status === 'fulfilled' ? compareResult.value : null);
-          setBreakdownData(breakdownResult.status === 'fulfilled' ? breakdownResult.value : null);
-          setInsightData(insightResult.status === 'fulfilled' ? insightResult.value : null);
-          
-          // Log any errors
-          if (compareResult.status === 'rejected') {
-            console.error('❌ Comparison API error:', compareResult.reason);
-          }
-          if (breakdownResult.status === 'rejected') {
-            console.error('❌ Breakdown API error:', breakdownResult.reason);
-          }
-          if (insightResult.status === 'rejected') {
-            console.error('❌ Insights API error:', insightResult.reason);
-          }
-        }
-      } catch (err) {
-        console.error('❌ Analytics fetch error:', err);
-        if (isMounted) {
-          setComparisonData(null);
-          setBreakdownData(null);
-          setInsightData(null);
-        }
-      } finally {
-        if (isMounted) setLoadingAnalytics(false);
-      }
-    }
-    fetchAnalytics();
-    return () => { isMounted = false; };
   }, [selectedMonth]);
 
   // Calculate business data - use API data with earnings-based monthly revenue
@@ -390,9 +326,7 @@ export function ModernDashboard() {
     { id: "upload", label: "AI Upload", icon: Zap },
     { id: "advanced", label: "Advanced", icon: BarChart3 },
     { id: "reports", label: "Reports", icon: FileText },
-    { id: "insights", label: "Insights", icon: Eye },
     { id: "inventory", label: "Inventory", icon: FileText, isRoute: true, route: "/inventory" },
-    { id: "business-trends", label: "Business Trends", icon: TrendingUp, isRoute: true, route: "/business-trends" },
     { id: "profile", label: "Profile", icon: User },
     { id: "contact", label: "Contact Us", icon: MessageCircle, isRoute: true, route: "/contact" },
     { id: "settings", label: "Settings", icon: Settings },
@@ -415,7 +349,7 @@ export function ModernDashboard() {
           
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">₹</span>
+              <Sparkles className="text-white h-5 w-5" />
             </div>
             <div>
               <h1 className="text-lg font-semibold">VirtualCFO</h1>
@@ -522,32 +456,67 @@ export function ModernDashboard() {
           )}
 
           {/* Health Score & Quick Stats */}
-          <div className="flex items-center justify-between mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-800">Key Metrics</h2>
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleShowComparison}
-                className="text-xs flex items-center gap-2 hover:bg-blue-50 border-blue-300"
-                disabled={loadingComparison}
-              >
-                {loadingComparison ? (
-                  <>
-                    <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    📊 Compare Months
-                  </>
-                )}
-              </Button>
-              <MonthSelector 
-                value={selectedMonth} 
-                onChange={setSelectedMonth} 
-                userCreatedAt={userCreatedAt || undefined}
-              />
+          <div className="mb-6">
+            {/* Header Section with improved layout */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Key Metrics</h2>
+                <p className="text-sm text-gray-600 mt-1">Track your business performance and growth</p>
+              </div>
+              
+              {/* Controls Section */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
+                <MonthSelector 
+                  value={selectedMonth} 
+                  onChange={setSelectedMonth} 
+                  userCreatedAt={userCreatedAt || undefined}
+                />
+                
+                {/* Enhanced Compare Button */}
+                <div className="relative flex flex-col gap-2">
+                  <label className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Analysis
+                  </label>
+                  <div className="relative">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            onClick={handleShowComparison}
+                            disabled={loadingComparison}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-3 rounded-lg font-medium transform hover:scale-105 active:scale-95 h-[50px] w-full"
+                          >
+                            {loadingComparison ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                <span className="hidden sm:inline">Analyzing...</span>
+                                <span className="sm:hidden">Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                <span className="hidden sm:inline">Compare Months</span>
+                                <span className="sm:hidden">Compare</span>
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-sm">Compare current month performance with previous periods</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {businessData.monthlyRevenue > 0 && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -604,18 +573,15 @@ export function ModernDashboard() {
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <MetricCard
                 title="Monthly Revenue"
-                value={earningsLoading || loadingAnalytics ? 0 : businessData.monthlyRevenue}
+                value={earningsLoading ? 0 : businessData.monthlyRevenue}
                 icon={TrendingUp}
-                trend={!earningsLoading && !loadingAnalytics && comparisonData?.data?.growth ? {
-                  value: Math.round(Math.abs(comparisonData.data.growth.revenue_growth)),
-                  isPositive: comparisonData.data.growth.revenue_growth >= 0
-                } : (!earningsLoading && !loadingAnalytics && businessData.monthlyRevenue > 0 ? businessData.trend?.revenue : undefined)}
+                trend={!earningsLoading && businessData.monthlyRevenue > 0 ? businessData.trend?.revenue : undefined}
                 isCurrency={true}
-                className={`modern-card ${loadingAnalytics ? 'opacity-60' : ''}`}
+                className="modern-card"
                 subtitle={
-                  earningsLoading || loadingAnalytics ? "Loading..." : 
+                  earningsLoading ? "Loading..." : 
                   businessData.monthlyRevenueData.source === 'calculated' 
-                    ? `${businessData.monthlyRevenueData.monthName} (${businessData.monthlyRevenueData.daysRecorded} days recorded)`
+                    ? businessData.monthlyRevenueData.dateRange || `${businessData.monthlyRevenueData.monthName} (${businessData.monthlyRevenueData.daysRecorded} days recorded)`
                     : `${businessData.monthlyRevenueData.monthName} (Estimated)`
                 }
               />
@@ -727,159 +693,47 @@ export function ModernDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* AI Insights */}
-                <Card className="modern-card">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Brain className="h-4 w-4 text-primary" />
-                        AI Insights
-                        {loadingAnalytics && (
-                          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        )}
-                      </CardTitle>
-                      {insightData?.data && (
-                        <Badge variant="outline" className="text-xs">
-                          {insightData.data.insights?.length || 0} insights
-                        </Badge>
-                      )}
+          {/* Comparison Insights CTA */}
+          {businessData.monthlyRevenue > 0 && (
+            <Card className="bg-gradient-to-r from-slate-50 to-blue-50 border-slate-200 hover:shadow-md transition-all duration-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Quick Comparison Summary */}
-                    {comparisonData?.data && !loadingAnalytics && (
-                      <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-sm text-blue-900 flex items-center gap-2">
-                            📊 Month Comparison
-                          </h4>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={handleShowComparison}
-                            className="text-xs text-blue-700 hover:text-blue-900 h-6 px-2"
-                          >
-                            Details →
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <span className="text-gray-600">Revenue Change:</span>
-                            <div className={`font-medium ${comparisonData.data.growth.revenue_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {comparisonData.data.growth.revenue_growth >= 0 ? '+' : ''}{comparisonData.data.growth.revenue_growth.toFixed(1)}%
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Profit Change:</span>
-                            <div className={`font-medium ${comparisonData.data.growth.profit_growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {comparisonData.data.growth.profit_growth >= 0 ? '+' : ''}{comparisonData.data.growth.profit_growth.toFixed(1)}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {loadingAnalytics ? (
-                      <div className="space-y-3">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div className="h-3 bg-gray-100 rounded w-full"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : insightData?.data ? (
-                      <div className="space-y-4">
-                        {insightData.data.insights?.slice(0, 3).map((insight: any, index: number) => {
-                          const priorityColors = {
-                            high: 'border-l-red-500 bg-red-50 text-red-900',
-                            medium: 'border-l-yellow-500 bg-yellow-50 text-yellow-900',
-                            low: 'border-l-blue-500 bg-blue-50 text-blue-900'
-                          };
-                          
-                          const priorityIcons = {
-                            high: AlertTriangle,
-                            medium: TrendingUp,
-                            low: Target
-                          };
-                          
-                          const IconComponent = priorityIcons[insight.priority as keyof typeof priorityIcons] || Target;
-                          
-                          return (
-                            <div 
-                              key={index} 
-                              className={`p-3 rounded-lg border-l-4 transition-all hover:shadow-sm ${
-                                priorityColors[insight.priority as keyof typeof priorityColors] || priorityColors.low
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <IconComponent className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium text-sm">{insight.title}</h4>
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`text-xs px-1.5 py-0.5 ${
-                                        insight.priority === 'high' ? 'border-red-300 text-red-700 bg-red-50' :
-                                        insight.priority === 'medium' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
-                                        'border-blue-300 text-blue-700 bg-blue-50'
-                                      }`}
-                                    >
-                                      {insight.priority.toUpperCase()}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs leading-relaxed">{insight.message}</p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        
-                        {insightData.data.recommendations?.length > 0 && (
-                          <div className="mt-4 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                            <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                              <Zap className="h-4 w-4 text-primary" />
-                              Recommendations
-                            </h4>
-                            <ul className="text-xs space-y-1">
-                              {insightData.data.recommendations.slice(0, 3).map((rec: string, index: number) => (
-                                <li key={index} className="flex items-start gap-2">
-                                  <span className="text-primary mt-1">•</span>
-                                  <span className="text-gray-700">{rec}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        
-                        {insightData.data.metrics && (
-                          <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                            <div className="bg-gray-50 p-2 rounded">
-                              <span className="text-gray-600">Profit Margin</span>
-                              <div className="font-semibold text-sm">
-                                {insightData.data.metrics.profit_margin?.toFixed(1) || 0}%
-                              </div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <span className="text-gray-600">Days Recorded</span>
-                              <div className="font-semibold text-sm">
-                                {insightData.data.metrics.days_recorded || 0}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">Performance Analysis</h3>
+                      <p className="text-xs text-gray-600">Compare this month's performance with previous periods to identify trends</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleShowComparison}
+                    disabled={loadingComparison}
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  >
+                    {loadingComparison ? (
+                      <>
+                        <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin mr-1"></div>
+                        Loading
+                      </>
                     ) : (
-                      <div className="text-center py-6">
-                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <MessageCircle className="h-6 w-6 text-gray-400" />
-                        </div>
-                        <p className="text-sm text-gray-500 mb-2">No insights available</p>
-                        <p className="text-xs text-gray-400">Add earnings data to get AI-powered insights</p>
-                      </div>
+                      <>
+                        View Analysis
+                        <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </>
                     )}
-                  </CardContent>
-                </Card>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
        <Card>
         <CardHeader>
@@ -915,9 +769,12 @@ export function ModernDashboard() {
           )}
           {activeTab === "chat" && <ChatInterface />}
           {activeTab === "advanced" && <AdvancedDashboard />}
-          {activeTab === "upload" && <MultiModalUploader />}
+          {activeTab === "upload" && (
+            <div className="space-y-6">
+              <MultiModalUploader />
+            </div>
+          )}
           {activeTab === "reports" && <ReportGenerator businessData={businessData} />}
-          {activeTab === "insights" && <InsightsPanel />}
           {activeTab === "profile" && <ProfileView />}
         </main>
       </div>

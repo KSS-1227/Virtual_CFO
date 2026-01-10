@@ -69,12 +69,22 @@ export default function Earnings() {
 
   const loadRecentEntries = async () => {
     try {
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30); // Extended to 30 days for better streak detection
-      const startDateStr = startDate.toISOString().split('T')[0];
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       
-      const { data } = await earningsAPI.getEarningsByDateRange(startDateStr, endDate);
+      // Get last 7 entries directly from database
+      const { data, error } = await supabase
+        .from('earnings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('earning_date', { ascending: false })
+        .limit(7);
+      
+      if (error) {
+        console.error('Error loading recent entries:', error);
+        return;
+      }
+      
       setRecentEntries(data || []);
       
       // Calculate streak

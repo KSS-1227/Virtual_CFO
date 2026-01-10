@@ -245,7 +245,14 @@ const startServer = async () => {
 
     // Handle server errors
     server.on("error", (error) => {
-      console.error("❌ Server error:", error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use. Please:`);
+        console.error(`   1. Kill the process using: taskkill /PID <PID> /F`);
+        console.error(`   2. Or change PORT in .env file`);
+        console.error(`   3. Or run: netstat -ano | findstr :${PORT}`);
+      } else {
+        console.error("❌ Server error:", error);
+      }
       process.exit(1);
     });
 
