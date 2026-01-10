@@ -28,10 +28,6 @@ const productsRoutes = require("./routes/products");
 const aiRoutes = require("./routes/ai");
 const visionRoutes = require("./routes/vision");
 const duplicateRoutes = require("./routes/duplicates");
-<<<<<<< HEAD
-const revenueRoutes = require("./routes/revenue");
-const comparisonRoutes = require("./routes/comparison");
-=======
 const marketAnalysisRoutes = require("./routes/market-analysis");
 const multiModalRoutes = require("./routes/multimodal");
 const voiceRoutes = require("./routes/voice");
@@ -40,8 +36,15 @@ const vectorRoutes = require("./routes/vector");
 const inventoryRoutes = require("./routes/inventory");
 const professionalInventoryRoutes = require("./routes/professionalInventory");
 const notificationRoutes = require("./routes/notifications");
-const { EmbeddingWorker } = require("./services/embeddingWorker");
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
+// const redisRoutes = require("./routes/redis"); // Commented out
+// Optional embedding worker
+let EmbeddingWorker = null;
+try {
+  const embeddingModule = require("./services/embeddingWorker");
+  EmbeddingWorker = embeddingModule.EmbeddingWorker;
+} catch (err) {
+  console.log('EmbeddingWorker not available:', err.message);
+}
 
 // Initialize Express app
 const app = express();
@@ -143,12 +146,7 @@ app.get("/api", (req, res) => {
         businessIdeas: "/api/business-ideas",
         redis: "/api/redis",
         duplicates: "/api/duplicates",
-<<<<<<< HEAD
-        revenue: "/api/revenue",
-        comparison: "/api/comparison",
-=======
         marketAnalysis: "/api/market-analysis",
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
       },
       docs: "See README.md for detailed API documentation",
     },
@@ -167,12 +165,6 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/vision", rateLimits.aiChat, visionRoutes);
 app.use("/api/metrics", metricsRoutes);
 app.use("/api/duplicates", duplicateRoutes);
-<<<<<<< HEAD
-app.use("/api/revenue", revenueRoutes);
-app.use("/api/comparison", comparisonRoutes);
-//app.use("/api/redis", redisRoutes);
-=======
-app.use("/api/redis", redisRoutes);
 app.use("/api/market-analysis", rateLimits.aiChat, marketAnalysisRoutes);
 app.use("/api/multimodal", rateLimits.aiChat, multiModalRoutes);
 app.use("/api/voice", rateLimits.aiChat, voiceRoutes);
@@ -180,7 +172,7 @@ app.use("/api/vector", vectorRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/inventory/professional", professionalInventoryRoutes);
 app.use("/api/notifications", notificationRoutes);
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
+// app.use("/api/redis", redisRoutes); // Commented out
 
 // 404 handler
 app.use(notFound);
@@ -234,11 +226,16 @@ const startServer = async () => {
     serverInstance = server;
 
     // Start background embedding worker (only in non-test environments)
-    try {
-      embeddingWorker = new EmbeddingWorker();
-      embeddingWorker.start();
-    } catch (wkErr) {
-      console.error('EmbeddingWorker failed to start:', wkErr);
+    if (EmbeddingWorker) {
+      try {
+        embeddingWorker = new EmbeddingWorker();
+        embeddingWorker.start();
+        console.log('✅ EmbeddingWorker started successfully');
+      } catch (wkErr) {
+        console.log('⚠️ EmbeddingWorker failed to start:', wkErr.message);
+      }
+    } else {
+      console.log('ℹ️ EmbeddingWorker not available');
     }
 
     // Handle server errors

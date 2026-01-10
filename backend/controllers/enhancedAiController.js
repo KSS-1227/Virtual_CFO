@@ -4,15 +4,6 @@ const { asyncHandler } = require("../middleware/errorHandler");
 const { v4: uuidv4 } = require("uuid");
 const graphRAG = require("../config/graphRAG");
 
-// Try to import enhanced Graph RAG, fallback if not available
-let EnhancedGraphRAG = null;
-try {
-  const vectorService = require("../services/vectorService");
-  EnhancedGraphRAG = vectorService.EnhancedGraphRAG;
-} catch (err) {
-  console.log('Enhanced Graph RAG not available, using basic version');
-}
-
 // Enhanced AI Chat Assistant with Graph RAG + Vector Search
 const chatAssistantWithRAG = asyncHandler(async (req, res) => {
   const { message } = req.body;
@@ -46,26 +37,19 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
       .eq("id", userId)
       .single();
 
-    // Retrieve relevant knowledge with vector search if available
+    // Try to use enhanced Graph RAG if available
     let relevantKnowledge = { entities: [], relationships: [], context: "" };
-    
-    if (EnhancedGraphRAG) {
-      try {
-        const enhancedRAG = new EnhancedGraphRAG();
-        relevantKnowledge = await enhancedRAG.retrieveRelevantKnowledgeWithVectors(
-          userId,
-          message,
-          profile || {}
-        );
-      } catch (vectorError) {
-        console.log('Vector search failed, using basic retrieval:', vectorError.message);
-        relevantKnowledge = await graphRAG.retrieveRelevantKnowledge(
-          userId,
-          message,
-          profile || {}
-        );
-      }
-    } else {
+    try {
+      const { EnhancedGraphRAG } = require("../services/vectorService");
+      const enhancedRAG = new EnhancedGraphRAG();
+      relevantKnowledge = await enhancedRAG.retrieveRelevantKnowledgeWithVectors(
+        userId,
+        message,
+        profile || {}
+      );
+    } catch (vectorError) {
+      console.log("Vector service not available, using basic Graph RAG:", vectorError.message);
+      // Fallback to basic Graph RAG
       relevantKnowledge = await graphRAG.retrieveRelevantKnowledge(
         userId,
         message,
@@ -93,21 +77,19 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
       type: "chat_response",
     });
 
-    // Store with vector embeddings if available
-    if (EnhancedGraphRAG) {
-      try {
-        const enhancedRAG = new EnhancedGraphRAG();
-        await enhancedRAG.storeKnowledgeWithVectors(
-          userId,
-          responseEntities,
-          relationships,
-          conversationId
-        );
-      } catch (vectorError) {
-        console.log('Vector storage failed, using basic storage:', vectorError.message);
-        await graphRAG.storeKnowledge(userId, responseEntities, relationships, conversationId);
-      }
-    } else {
+    // Store knowledge with vectors if available
+    try {
+      const { EnhancedGraphRAG } = require("../services/vectorService");
+      const enhancedRAG = new EnhancedGraphRAG();
+      await enhancedRAG.storeKnowledgeWithVectors(
+        userId,
+        responseEntities,
+        relationships,
+        conversationId
+      );
+    } catch (vectorError) {
+      console.log("Vector storage not available, using basic storage:", vectorError.message);
+      // Fallback to basic storage
       await graphRAG.storeKnowledge(userId, responseEntities, relationships, conversationId);
     }
 

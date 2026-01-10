@@ -6,11 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-<<<<<<< HEAD
 import { profileAPI, chatAPI, handleAPIError, productsAPI, earningsAPI, monthlyRevenueHelpers, revenueAPI } from "@/lib/api";
-=======
-import { profileAPI, chatAPI, handleAPIError, productsAPI, metricsAPI } from "@/lib/api";
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 import { InsightsGenerator } from "@/lib/insights-generator";
 import MonthSelector from "./month-selector";
 import { 
@@ -128,7 +124,6 @@ export function ModernDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-<<<<<<< HEAD
   
   // Month Selector state
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -191,11 +186,6 @@ export function ModernDashboard() {
       setEarningsLoading(false);
     }
   };
-=======
-  const [streamingMetrics, setStreamingMetrics] = useState<any | null>(null);
-  const [userStreamingMetrics, setUserStreamingMetrics] = useState<any | null>(null);
-  const [autopilotLoading, setAutopilotLoading] = useState(false);
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 
   useEffect(() => {
     const loadRecommendation = async () => {
@@ -241,11 +231,11 @@ export function ModernDashboard() {
       const result = await comparisonAPI.getDetailedComparison(selectedMonth);
       setComparisonModalData(result.data);
     } catch (error) {
-      console.error('Error fetching comparison data:', error);
-      toast({
-        title: "Error Loading Comparison",
-        description: "Please try again.",
-        variant: "destructive"
+      console.log('Comparison API not available:', error);
+      // Provide fallback data or show message
+      setComparisonModalData({
+        message: 'Detailed comparison data is not available yet. Please ensure you have earnings data for multiple months.',
+        fallback: true
       });
     } finally {
       setLoadingComparison(false);
@@ -285,52 +275,10 @@ export function ModernDashboard() {
     }
   }, [activeTab]);
 
-<<<<<<< HEAD
   // Refresh earnings data when selected month changes
   useEffect(() => {
     loadEarningsData(selectedMonth);
   }, [selectedMonth]);
-=======
-  const loadProfileData = async () => {
-    try {
-      setLoading(true);
-      const [profile, stats] = await Promise.all([
-        profileAPI.getProfile(),
-        profileAPI.getProfileStats()
-      ]);
-      
-      setProfileData(profile.data);
-      setProfileStats(stats.data);
-
-      // Load autopilot-related metrics in parallel once core profile data is available
-      setAutopilotLoading(true);
-      try {
-        const [streamSummary, userSummary] = await Promise.all([
-          metricsAPI.getStreamingMetrics(),
-          metricsAPI.getUserStreamingMetrics(),
-        ]);
-        setStreamingMetrics(streamSummary.data?.metrics || streamSummary.data || null);
-        setUserStreamingMetrics(userSummary.data || null);
-      } catch (metricsError) {
-        console.error("Error loading streaming metrics:", metricsError);
-      } finally {
-        setAutopilotLoading(false);
-      }
-    } catch (error) {
-      console.error('Error loading profile data:', error);
-      // Graceful fallback - don't break the UI
-      setProfileData(null);
-      setProfileStats(null);
-      toast({
-        title: "Error Loading Data",
-        description: "Please check your connection.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 
   // Fetch analytics data when selected month changes
   useEffect(() => {
@@ -351,12 +299,13 @@ export function ModernDashboard() {
           return;
         }
         
-        console.log('✅ User authenticated, fetching revenue data...');
+        console.log('✅ User authenticated, trying revenue APIs...');
         
+        // Try revenue APIs with fallback to null if they don't exist
         const [compareResult, breakdownResult, insightResult] = await Promise.allSettled([
-          revenueAPI.getRevenueComparison(selectedMonth),
-          revenueAPI.getRevenueBreakdown(selectedMonth),
-          revenueAPI.getRevenueInsights(selectedMonth),
+          revenueAPI.getRevenueComparison(selectedMonth).catch(() => null),
+          revenueAPI.getRevenueBreakdown(selectedMonth).catch(() => null),
+          revenueAPI.getRevenueInsights(selectedMonth).catch(() => null),
         ]);
 
         console.log('📊 API Results:', {
@@ -370,19 +319,19 @@ export function ModernDashboard() {
           setBreakdownData(breakdownResult.status === 'fulfilled' ? breakdownResult.value : null);
           setInsightData(insightResult.status === 'fulfilled' ? insightResult.value : null);
           
-          // Log any errors
+          // Log any errors but don't fail the component
           if (compareResult.status === 'rejected') {
-            console.error('❌ Comparison API error:', compareResult.reason);
+            console.log('ℹ️ Comparison API not available:', compareResult.reason?.message);
           }
           if (breakdownResult.status === 'rejected') {
-            console.error('❌ Breakdown API error:', breakdownResult.reason);
+            console.log('ℹ️ Breakdown API not available:', breakdownResult.reason?.message);
           }
           if (insightResult.status === 'rejected') {
-            console.error('❌ Insights API error:', insightResult.reason);
+            console.log('ℹ️ Insights API not available:', insightResult.reason?.message);
           }
         }
       } catch (err) {
-        console.error('❌ Analytics fetch error:', err);
+        console.log('ℹ️ Analytics APIs not available, using fallback data:', err);
         if (isMounted) {
           setComparisonData(null);
           setBreakdownData(null);
@@ -803,7 +752,6 @@ export function ModernDashboard() {
                   </CardContent>
                 </Card>
 
-<<<<<<< HEAD
                 {/* AI Insights */}
                 <Card className="modern-card">
                   <CardHeader className="pb-3">
@@ -965,16 +913,6 @@ export function ModernDashboard() {
             Recommended for You
           </CardTitle>
         </CardHeader>
-=======
-                {/* Key Insights */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-primary" />
-                      Recommended for You
-                    </CardTitle>
-                  </CardHeader>
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 
                   <CardContent className="space-y-4">
                     {products.map((product) => (

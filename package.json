@@ -51,12 +51,8 @@
     "embla-carousel-react": "^8.6.0",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
-<<<<<<< HEAD
     "jspdf": "^4.0.0",
-=======
-    "jspdf": "^3.0.1",
     "lodash": "^4.17.21",
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

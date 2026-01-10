@@ -43,13 +43,9 @@
     "uuid": "^12.0.0"
   },
   "devDependencies": {
-<<<<<<< HEAD
-    "nodemon": "^3.1.11"
-=======
     "@types/jest": "^30.0.0",
     "fast-check": "^4.5.3",
     "jest": "^30.2.0",
-    "nodemon": "^3.1.10"
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
+    "nodemon": "^3.1.11"
   }
 }

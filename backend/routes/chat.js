@@ -4,8 +4,7 @@ const {
   chatAssistantWithRAG,
   getChatHistoryWithRAG,
   getFinancialInsightsWithRAG,
-  getKnowledgeGraph,
-} = require("../controllers/aiControllerRAG");
+} = require("../controllers/enhancedAiController");
 
 const router = express.Router();
 
@@ -20,8 +19,5 @@ router.get("/history", getChatHistoryWithRAG);
 
 // GET /api/chat/insights - Get AI-generated financial insights with Graph RAG
 router.get("/insights", getFinancialInsightsWithRAG);
-
-// GET /api/chat/knowledge-graph - Get user's knowledge graph visualization
-router.get("/knowledge-graph", getKnowledgeGraph);
 
 module.exports = router;

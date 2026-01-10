@@ -1,45 +1,8 @@
 // const Redis = require("ioredis");
 // const config = require("./env");
 
-<<<<<<< HEAD
-// Redis is commented out - using mock clients instead
-console.log("⚠️ Redis is disabled (commented out) - using mock clients");
-=======
-// Check if Redis is enabled
-if (!config.redis.enabled) {
-  console.log("⚠️ Redis is disabled in configuration");
-  
-  // Export mock Redis clients
-  const mockRedisClient = {
-    ping: () => Promise.resolve("PONG"),
-    get: () => Promise.resolve(null),
-    set: () => Promise.resolve("OK"),
-    setex: () => Promise.resolve("OK"),
-    del: () => Promise.resolve(1),
-    quit: () => Promise.resolve("OK"),
-    disconnect: () => {},
-    on: () => {},
-    info: () => Promise.resolve(""),
-    time: () => Promise.resolve([Date.now(), 0]),
-    zremrangebyscore: () => Promise.resolve(0),
-    zcard: () => Promise.resolve(0),
-    zadd: () => Promise.resolve(1),
-    expire: () => Promise.resolve(1),
-    zrange: () => Promise.resolve([])
-  };
-  
-  module.exports = {
-    redisClient: mockRedisClient,
-    redisSubscriber: mockRedisClient,
-    redisRateLimiter: mockRedisClient,
-    testRedisConnection: () => Promise.resolve(true),
-    getRedisHealth: () => Promise.resolve({ status: "disabled" }),
-    shutdownRedisClients: () => Promise.resolve()
-  };
-  
-  return;
-}
->>>>>>> 4a81790c8af46298f3afa64674551179d9551894
+// Redis is disabled - using mock clients instead
+console.log("⚠️ Redis is disabled - using mock clients");
 
 const mockRedisClient = {
   ping: () => Promise.resolve("PONG"),
@@ -54,7 +17,12 @@ const mockRedisClient = {
   time: () => Promise.resolve([Date.now(), 0]),
   dbsize: () => Promise.resolve(0),
   keys: () => Promise.resolve([]),
-  flushdb: () => Promise.resolve("OK")
+  flushdb: () => Promise.resolve("OK"),
+  zremrangebyscore: () => Promise.resolve(0),
+  zcard: () => Promise.resolve(0),
+  zadd: () => Promise.resolve(1),
+  expire: () => Promise.resolve(1),
+  zrange: () => Promise.resolve([])
 };
 
 module.exports = {
