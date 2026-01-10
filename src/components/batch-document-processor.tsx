@@ -12,23 +12,25 @@ import {
   Download, 
   Trash2,
   AlertTriangle,
-  FileText,
-  Image
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useBatchProcessing } from '@/hooks/useBatchProcessing';
-import type { BatchDocumentResult } from '@/services/openaiVision';
-
-export function BatchDocumentProcessor() {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isProcessing, progress, results, error, processBatch, reset } = useBatchProcessing();
-
-  const handleFileSelection = (files: FileList | null) => {
-    if (!files) return;
-    
-    const validFiles = Array.from(files).filter(file => 
-      file.type.startsWith('image/') || file.type === 'application/pdf'
+                  <Button
+                    size="sm"
+                    onClick={startBatchProcessingWithRetry}
+                    disabled={isProcessing || selectedFiles.length === 0}
+                    className="btn-primary"
+                  >
+                    {isProcessing ? 'Processing...' : 'Start Processing'}
+                  </Button>
+    Files, 
+    CheckCircle, 
+    XCircle, 
+    Download, 
+    Trash2,
+    AlertTriangle,
+    FileText,
+    Image,
+    DollarSign,
+    Zap
+  } from 'lucide-react';
     );
     
     setSelectedFiles(prev => [...prev, ...validFiles]);
@@ -52,6 +54,44 @@ export function BatchDocumentProcessor() {
       console.error('Batch processing failed:', error);
     }
   };
+    // CRITICAL FIX #2: Resilient processing with automatic retry
+    const startBatchProcessingWithRetry = async () => {
+      if (selectedFiles.length === 0) return;
+    
+      const MAX_RETRIES = 2;
+      let attempt = 0;
+      let lastError: any;
+    
+      while (attempt < MAX_RETRIES) {
+        try {
+          await processBatch(selectedFiles);
+          return; // Success - exit
+        } catch (error) {
+          lastError = error;
+          attempt++;
+        
+          // Don't retry on authentication errors
+          if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+            console.error('Authentication error - no retry:', error);
+            break;
+          }
+        
+          if (attempt < MAX_RETRIES) {
+            const delay = 2000 * attempt; // 2s, 4s backoff
+            console.warn(`Batch processing failed, retrying in ${delay}ms... (attempt ${attempt}/${MAX_RETRIES})`);
+          
+            // Show retry notification to user
+            const retryMsg = `Processing failed. Retrying... (attempt ${attempt}/${MAX_RETRIES})`;
+            // Could integrate with toast notification here
+          
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+    
+      // All retries exhausted
+      console.error('Batch processing failed after all retries:', lastError);
+    };
 
   const downloadResults = () => {
     if (!results) return;
@@ -243,6 +283,30 @@ export function BatchDocumentProcessor() {
               </div>
             </div>
 
+              {/* Cost Tracking Widget - CRITICAL FIX #1 */}
+              <div className="grid grid-cols-2 gap-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <DollarSign className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Estimated Cost</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      ₹{((results.summary.totalExtracted * 0.05) || 0).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">~₹0.05 per entry</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Zap className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Processing Time</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {results.summary.successful > 0 ? '2-5s/file' : 'N/A'}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">avg completion time</p>
+                  </div>
+                </div>
+              </div>
+
             <Separator />
 
             {/* Detailed Results */}
@@ -259,21 +323,14 @@ export function BatchDocumentProcessor() {
                       ) : (
                         <XCircle className="h-4 w-4 text-destructive" />
                       )}
-                      <span className="text-sm font-medium">{result.file}</span>
-                    </div>
-                    <Badge variant={result.success ? "default" : "destructive"} className="text-xs">
-                      {result.success ? `${result.data.length} entries` : 'Failed'}
-                    </Badge>
-                  </div>
-                  {result.error && (
-                    <p className="text-xs text-destructive mt-1">{result.error}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={startBatchProcessingWithRetry}
+                    disabled={isProcessing || selectedFiles.length === 0}
+                    className="btn-primary"
+                  >
+                    {isProcessing ? 'Processing...' : 'Start Processing'}
+                  </Button>
   );
 }

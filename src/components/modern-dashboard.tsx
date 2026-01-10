@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+<<<<<<< HEAD
 import { profileAPI, chatAPI, handleAPIError, productsAPI, earningsAPI, monthlyRevenueHelpers, revenueAPI } from "@/lib/api";
+=======
+import { profileAPI, chatAPI, handleAPIError, productsAPI, metricsAPI } from "@/lib/api";
+>>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 import { InsightsGenerator } from "@/lib/insights-generator";
 import MonthSelector from "./month-selector";
 import { 
@@ -37,6 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { AdvancedDashboard } from "@/components/advanced/advanced-dashboard";
 import { DocumentUploader } from "@/components/document-uploader";
+import MultiModalUploader from "@/components/MultiModalUploader";
 import { ReportGenerator } from "@/components/report-generator";
 import { InsightsPanel } from "@/components/insights-panel";
 import { ProfileView } from "@/components/profile-view";
@@ -123,6 +128,7 @@ export function ModernDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
+<<<<<<< HEAD
   
   // Month Selector state
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -185,6 +191,11 @@ export function ModernDashboard() {
       setEarningsLoading(false);
     }
   };
+=======
+  const [streamingMetrics, setStreamingMetrics] = useState<any | null>(null);
+  const [userStreamingMetrics, setUserStreamingMetrics] = useState<any | null>(null);
+  const [autopilotLoading, setAutopilotLoading] = useState(false);
+>>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 
   useEffect(() => {
     const loadRecommendation = async () => {
@@ -192,11 +203,19 @@ export function ModernDashboard() {
         const data = await productsAPI.getRecommendations();
         setProducts(data.data);
       } catch (error) {
+<<<<<<< HEAD
         console.error('Error loading recommendations:', error);
       }
     };
     loadRecommendation();
   }, [])
+=======
+        console.error("Error loading product recommendations:", error);
+      }
+    };
+    loadRecommendation();
+  }, []);
+>>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 // const [products] = useState<Product[]>([
 //     {
 //       id: 1,
@@ -274,10 +293,52 @@ export function ModernDashboard() {
     }
   }, [activeTab]);
 
+<<<<<<< HEAD
   // Refresh earnings data when selected month changes
   useEffect(() => {
     loadEarningsData(selectedMonth);
   }, [selectedMonth]);
+=======
+  const loadProfileData = async () => {
+    try {
+      setLoading(true);
+      const [profile, stats] = await Promise.all([
+        profileAPI.getProfile(),
+        profileAPI.getProfileStats()
+      ]);
+      
+      setProfileData(profile.data);
+      setProfileStats(stats.data);
+
+      // Load autopilot-related metrics in parallel once core profile data is available
+      setAutopilotLoading(true);
+      try {
+        const [streamSummary, userSummary] = await Promise.all([
+          metricsAPI.getStreamingMetrics(),
+          metricsAPI.getUserStreamingMetrics(),
+        ]);
+        setStreamingMetrics(streamSummary.data?.metrics || streamSummary.data || null);
+        setUserStreamingMetrics(userSummary.data || null);
+      } catch (metricsError) {
+        console.error("Error loading streaming metrics:", metricsError);
+      } finally {
+        setAutopilotLoading(false);
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+      // Graceful fallback - don't break the UI
+      setProfileData(null);
+      setProfileStats(null);
+      toast({
+        title: "Error Loading Data",
+        description: "Please check your connection.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+>>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 
   // Fetch analytics data when selected month changes
   useEffect(() => {
@@ -410,10 +471,11 @@ export function ModernDashboard() {
     { id: "overview", label: "Overview", icon: Home },
     { id: "earnings", label: "Daily Earnings", icon: DollarSign, isRoute: true, route: "/earnings" },
     { id: "chat", label: "AI Assistant", icon: MessageCircle },
-    { id: "upload", label: "Upload", icon: Upload },
+    { id: "upload", label: "AI Upload", icon: Zap },
     { id: "advanced", label: "Advanced", icon: BarChart3 },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "insights", label: "Insights", icon: Eye },
+    { id: "inventory", label: "Inventory", icon: FileText, isRoute: true, route: "/inventory" },
     { id: "business-trends", label: "Business Trends", icon: TrendingUp, isRoute: true, route: "/business-trends" },
     { id: "profile", label: "Profile", icon: User },
     { id: "contact", label: "Contact Us", icon: MessageCircle, isRoute: true, route: "/contact" },
@@ -672,26 +734,6 @@ export function ModernDashboard() {
 
           {/* Dynamic Content Based on Active Tab */}
           {activeTab === "overview" && (
-            <div className="grid xl:grid-cols-3 gap-6">
-              {/* AI Chat Interface */}
-              <Card className="modern-card xl:col-span-2">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">AI CFO Assistant</CardTitle>
-                    <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                      <div className="w-2 h-2 bg-success rounded-full mr-2 animate-pulse"></div>
-                      Online
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="h-[400px]">
-                    <ChatInterface />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Insights & Actions */}
               <div className="space-y-6">
                 {/* Quick Actions */}
                 <Card className="modern-card">
@@ -769,6 +811,7 @@ export function ModernDashboard() {
                   </CardContent>
                 </Card>
 
+<<<<<<< HEAD
                 {/* AI Insights */}
                 <Card className="modern-card">
                   <CardHeader className="pb-3">
@@ -930,34 +973,44 @@ export function ModernDashboard() {
             Recommended for You
           </CardTitle>
         </CardHeader>
+=======
+                {/* Key Insights */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      Recommended for You
+                    </CardTitle>
+                  </CardHeader>
+>>>>>>> 4a81790c8af46298f3afa64674551179d9551894
 
-        <CardContent className="space-y-4">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="flex justify-between gap-4 p-4 rounded-lg border bg-muted/30"
-            >
-              <div className="space-y-1">
-                <Badge variant="outline">{product.category}</Badge>
-                <p className="font-medium">{product.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {product.description}
-                </p>
-              </div>
+                  <CardContent className="space-y-4">
+                    {products.map((product) => (
+                      <div
+                        key={product.id}
+                        className="flex justify-between gap-4 p-4 rounded-lg border bg-muted/30"
+                      >
+                        <div className="space-y-1">
+                          <Badge variant="outline">{product.category}</Badge>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {product.description}
+                          </p>
+                        </div>
 
-              <div className="text-right space-y-2">
-                <p className="font-semibold">₹{product.price}</p>
-                <Button size="sm">View</Button>
+                        <div className="text-right space-y-2">
+                          <p className="font-semibold">₹{product.price}</p>
+                          <Button size="sm">View</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-                
-              </div>
-            </div>
           )}
-          {activeTab === "upload" && <DocumentUploader />}
+          {activeTab === "chat" && <ChatInterface />}
+          {activeTab === "advanced" && <AdvancedDashboard />}
+          {activeTab === "upload" && <MultiModalUploader />}
           {activeTab === "reports" && <ReportGenerator businessData={businessData} />}
           {activeTab === "insights" && <InsightsPanel />}
           {activeTab === "profile" && <ProfileView />}

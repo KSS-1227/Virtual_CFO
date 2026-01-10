@@ -1,6 +1,35 @@
 const express = require('express');
 const { generateBusinessInsights } = require('../config/openai');
+const { streamChatAssistant, chatAssistant, getChatHistory, getFinancialInsights } = require('../controllers/aiController');
+const { authenticateToken } = require('../middleware/auth');
+const { rateLimits } = require('../middleware/security');
 const router = express.Router();
+
+// CORS preflight for streaming endpoint (handles OPTIONS request)
+router.options('/stream', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
+});
+
+// =====================================================
+// CHAT ENDPOINTS (FIXED)
+// =====================================================
+
+// Regular chat endpoint (stores conversations)
+router.post('/chat', authenticateToken, rateLimits.aiChat, chatAssistant);
+
+// Streaming chat endpoint  
+router.post('/stream', authenticateToken, rateLimits.aiChat, streamChatAssistant);
+
+// Chat history endpoint
+router.get('/chat/history', authenticateToken, getChatHistory);
+
+// Financial insights endpoint
+router.get('/insights', authenticateToken, getFinancialInsights);
 
 router.post('/business-insights', async (req, res) => {
   try {

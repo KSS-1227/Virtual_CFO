@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 // Helper function to get auth token
 const getAuthToken = async () => {
@@ -135,6 +135,49 @@ export const chatAPI = {
       method: 'POST',
       body: JSON.stringify({ message }),
     });
+  },
+
+  // Stream AI response with SSE
+  streamAIResponse: async (
+    prompt: string,
+    onToken: (token: { text: string; tokenCount: number; timestamp: string }) => void,
+    onMeta?: (meta: any) => void,
+    onError?: (error: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> => {
+    // Use Graph RAG chat endpoint instead of streaming for embeddings
+    try {
+      const response = await chatAPI.sendMessage(prompt);
+      
+      // Simulate streaming by sending the response in chunks
+      const text = response.data.message;
+      const words = text.split(' ');
+      
+      for (let i = 0; i < words.length; i++) {
+        if (signal?.aborted) break;
+        
+        const chunk = words[i] + ' ';
+        onToken({
+          text: chunk,
+          tokenCount: i + 1,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Small delay to simulate streaming
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      // Send completion metadata
+      onMeta?.({
+        totalTokens: words.length,
+        model: 'gpt-4o-mini',
+        contextUsed: response.data.context_used,
+        conversation_id: response.data.conversation_id
+      });
+      
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : String(error));
+    }
   },
 
   // Get financial insights with Graph RAG
@@ -563,6 +606,200 @@ export const healthAPI = {
   // Get API info
   getInfo: async () => {
     return apiCall('/api');
+  },
+};
+
+// Streaming metrics / AI usage API
+export const metricsAPI = {
+  // Overall streaming metrics summary (all users)
+  getStreamingMetrics: async () => {
+    return apiCall('/api/metrics/streaming');
+  },
+
+  // Current user's streaming metrics
+  getUserStreamingMetrics: async () => {
+    return apiCall('/api/metrics/streaming/user');
+  },
+
+  // Specific stream metrics by ID (mainly for debugging/admin views)
+  getStreamMetrics: async (streamId: string) => {
+    return apiCall(`/api/metrics/streaming/${streamId}`);
+  },
+};
+
+// Inventory API
+export const inventoryAPI = {
+  // List inventory items with current stock
+  listItems: async () => {
+    return apiCall('/api/inventory/items');
+  },
+
+  // Create or update an inventory item
+  saveItem: async (item: {
+    id?: string;
+    product_name: string;
+    unit?: string;
+    brand?: string;
+    category?: string;
+    aliases?: string[];
+    custom_attributes?: any;
+    notes?: string;
+  }) => {
+    return apiCall('/api/inventory/items', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    });
+  },
+
+  // Get a single inventory item with movements
+  getItem: async (id: string) => {
+    return apiCall(`/api/inventory/items/${id}`);
+  },
+
+  // Delete item
+  deleteItem: async (id: string) => {
+    return apiCall(`/api/inventory/items/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Record stock movement (manual UI, or for integrating with other flows)
+  recordMovement: async (movement: {
+    item_id?: string;
+    product_name?: string;
+    direction: 'in' | 'out';
+    quantity: number;
+    source?: string;
+    reference_id?: string;
+    metadata?: any;
+  }) => {
+    return apiCall('/api/inventory/movements', {
+      method: 'POST',
+      body: JSON.stringify(movement),
+    });
+  },
+
+  // Summary and insights
+  getSummary: async () => {
+    return apiCall('/api/inventory/summary');
+  },
+
+  getInsights: async () => {
+    return apiCall('/api/inventory/insights');
+  },
+
+  // === ADVANCED DYNAMIC INVENTORY FEATURES ===
+
+  // Voice command processing
+  processVoiceCommand: async (audioFile: File, preferredLanguage = 'mixed') => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    formData.append('preferred_language', preferredLanguage);
+
+    return apiCall('/api/inventory/voice-command', {
+      method: 'POST',
+      body: formData,
+      headers: {} // Remove Content-Type to let browser set it for FormData
+    });
+  },
+
+  // Handle voice clarification
+  handleVoiceClarification: async (originalCommand: any, clarificationResponses: any[]) => {
+    return apiCall('/api/inventory/voice-clarification', {
+      method: 'POST',
+      body: JSON.stringify({
+        original_command: originalCommand,
+        clarification_responses: clarificationResponses
+      }),
+    });
+  },
+
+  // Image processing
+  processImage: async (imageFile: File) => {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+
+    return apiCall('/api/inventory/image-processing', {
+      method: 'POST',
+      body: formData,
+      headers: {} // Remove Content-Type to let browser set it for FormData
+    });
+  },
+
+  // Multi-modal processing (voice + image)
+  processMultiModal: async (audioFile: File, imageFile: File) => {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+    formData.append('image', imageFile);
+
+    return apiCall('/api/inventory/multimodal', {
+      method: 'POST',
+      body: formData,
+      headers: {} // Remove Content-Type to let browser set it for FormData
+    });
+  },
+
+  // Receipt processing for inventory updates
+  processReceipt: async (receiptImage: File) => {
+    const formData = new FormData();
+    formData.append('file', receiptImage);
+
+    return apiCall('/api/inventory/receipt-processing', {
+      method: 'POST',
+      body: formData,
+      headers: {} // Remove Content-Type to let browser set it for FormData
+    });
+  },
+
+  // Intelligent suggestions
+  getSuggestions: async (type: 'products' | 'categories' | 'suppliers' | 'historical', query: string, context?: any) => {
+    const params = new URLSearchParams({
+      type,
+      query,
+      ...(context && { context: JSON.stringify(context) })
+    });
+
+    return apiCall(`/api/inventory/suggestions?${params}`);
+  },
+
+  // Business intelligence
+  getBusinessInsights: async () => {
+    return apiCall('/api/inventory/business-insights');
+  },
+
+  getReorderRecommendations: async () => {
+    return apiCall('/api/inventory/reorder-recommendations');
+  },
+
+  getSeasonalPredictions: async (targetMonth: number) => {
+    return apiCall(`/api/inventory/seasonal-predictions?target_month=${targetMonth}`);
+  },
+
+  getSlowMovingItems: async () => {
+    return apiCall('/api/inventory/slow-movers');
+  },
+
+  getAnalyticsDashboard: async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const queryString = params.toString();
+    return apiCall(`/api/inventory/analytics-dashboard${queryString ? '?' + queryString : ''}`);
+  },
+
+  getAIOptimizationSuggestions: async () => {
+    return apiCall('/api/inventory/ai-optimization', {
+      method: 'POST',
+    });
+  },
+
+  // Batch processing
+  processBatchUpdate: async (batchData: any[]) => {
+    return apiCall('/api/inventory/batch-processing', {
+      method: 'POST',
+      body: JSON.stringify({ batch_data: batchData }),
+    });
   },
 };
 

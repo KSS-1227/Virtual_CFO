@@ -3,10 +3,10 @@ const {
   supabaseAdmin,
   supabase,
 } = require("./supabase");
+const { v4: uuidv4 } = require("uuid");
 const compromise = require("compromise");
 const natural = require("natural");
 const stopword = require("stopword");
-// const { v4: uuidv4 } = require("uuid");
 
 // Token Optimization Utility
 class TokenOptimizer {

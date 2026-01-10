@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:professional": "set PROFESSIONAL_INVENTORY_ENABLED=true && npm run dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -41,6 +42,7 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.57.4",
     "@tanstack/react-query": "^5.83.0",
+    "@types/lodash": "^4.17.21",
     "chart.js": "^4.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -49,7 +51,12 @@
     "embla-carousel-react": "^8.6.0",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
+<<<<<<< HEAD
     "jspdf": "^4.0.0",
+=======
+    "jspdf": "^3.0.1",
+    "lodash": "^4.17.21",
+>>>>>>> 4a81790c8af46298f3afa64674551179d9551894
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

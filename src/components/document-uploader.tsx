@@ -154,24 +154,15 @@ export function DocumentUploader() {
       }
     } catch (error) {
       console.error('Document processing failed:', error);
-      
-      // Handle authentication errors specifically
+
+      // Handle authentication errors specifically — do NOT inject demo data
       if (error.message.includes('Authentication required')) {
-        setProcessingError('Please log in to use AI document processing. Using demo mode instead.');
-        // Show demo data with clear indication
-        const demoData: ExtractedData[] = [{
-          id: `demo-${Date.now()}`,
-          date: new Date().toISOString().split('T')[0],
-          description: "🔒 Demo Mode - Login required for AI processing",
-          amount: -1500,
-          category: "Operations",
-          confidence: 0.5,
-          needsReview: true,
-          sourceFile: nonDuplicateFiles[0]?.name || 'demo'
-        }];
-        setExtractedData(demoData);
+        setProcessingError('Please log in to use AI document processing.');
+        // Ensure no demo data is populated
+        setExtractedData([]);
       } else {
         setProcessingError('Failed to process documents. Please try again.');
+        setExtractedData([]);
       }
     } finally {
       setIsProcessing(false);
@@ -254,8 +245,8 @@ export function DocumentUploader() {
         group.items.push(item);
         
         // Categorize based on amount sign and transaction type
-        const isRevenue = item.amount > 0 || item.type?.toLowerCase() === 'sale' || item.transaction_type === 'income';
-        const isExpense = item.amount < 0 || item.type?.toLowerCase() === 'expense' || item.type?.toLowerCase() === 'purchase' || item.transaction_type === 'expense';
+        const isRevenue = item.amount > 0 || ( (item as any).type?.toLowerCase() === 'sale' ) || ( (item as any).transaction_type === 'income' );
+        const isExpense = item.amount < 0 || ( (item as any).type?.toLowerCase() === 'expense' ) || ( (item as any).type?.toLowerCase() === 'purchase' ) || ( (item as any).transaction_type === 'expense' );
         
         if (isRevenue) {
           group.revenue += Math.abs(item.amount);
@@ -748,11 +739,11 @@ export function DocumentUploader() {
                       <Save className="h-4 w-4 mr-2" />
                       Save ₹{(() => {
                         const revenue = extractedData.filter(item => 
-                          item.amount > 0 || item.type?.toLowerCase() === 'sale'
+                          item.amount > 0 || (item as any).type?.toLowerCase() === 'sale'
                         ).reduce((sum, item) => sum + Math.abs(item.amount), 0);
                         
                         const expenses = extractedData.filter(item => 
-                          item.amount < 0 || item.type?.toLowerCase() === 'expense' || item.type?.toLowerCase() === 'purchase'
+                          item.amount < 0 || (item as any).type?.toLowerCase() === 'expense' || (item as any).type?.toLowerCase() === 'purchase'
                         ).reduce((sum, item) => sum + Math.abs(item.amount), 0);
                         
                         return `${revenue.toLocaleString()} Revenue + ₹${expenses.toLocaleString()} Expenses`;

@@ -1,10 +1,11 @@
 const { generateFinancialAdvice } = require("../config/openai");
 const { getAuthenticatedClient } = require("../config/supabase");
 const { asyncHandler } = require("../middleware/errorHandler");
+const { v4: uuidv4 } = require("uuid");
 const graphRAG = require("../config/graphRAG");
-// const { v4: uuidv4 } = require("uuid");
+const { EnhancedGraphRAG } = require("../services/vectorService");
 
-// Enhanced AI Chat Assistant with Graph RAG
+// Enhanced AI Chat Assistant with Graph RAG + Vector Search
 const chatAssistantWithRAG = asyncHandler(async (req, res) => {
   const { message } = req.body;
 
@@ -37,67 +38,75 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
       .eq("id", userId)
       .single();
 
-    // Step 1: Extract entities from user message
-    const entities = graphRAG.extractEntities(message.trim(), profile || {});
-
-    // Step 2: Retrieve relevant knowledge from graph
-    const relevantKnowledge = await graphRAG.retrieveRelevantKnowledge(
+    // ✨ NEW: Retrieve relevant knowledge with vector search
+    const enhancedRAG = new EnhancedGraphRAG();
+    const relevantKnowledge = await enhancedRAG.retrieveRelevantKnowledgeWithVectors(
       userId,
-      message.trim(),
+      message,
       profile || {}
     );
 
-    // Step 3: Generate enhanced prompt with graph context
+    // ✨ NEW: Generate enhanced prompt with knowledge context
     const enhancedPrompt = graphRAG.generateEnhancedPrompt(
       message.trim(),
       relevantKnowledge,
       profile || {}
     );
 
-    // Step 4: Generate AI response using enhanced prompt
+    // Generate AI response with enhanced context
     const aiResponse = await generateFinancialAdvice(
       enhancedPrompt,
       profile || {}
     );
 
-    // Step 5: Extract entities from AI response for learning
-    const responseEntities = graphRAG.extractEntities(
-      aiResponse,
-      profile || {}
-    );
-
-    // Step 6: Build relationships between entities
-    const allEntities = [...entities, ...responseEntities];
-    const relationships = graphRAG.buildRelationships(allEntities, {
+    // Extract entities from the AI response for knowledge accumulation
+    const responseEntities = graphRAG.extractEntities(aiResponse, profile || {});
+    const relationships = graphRAG.buildRelationships(responseEntities, {
       conversation_id: conversationId,
-      query: message.trim(),
-      response: aiResponse.substring(0, 200), // First 200 chars for context
+      type: "chat_response",
     });
 
-    // Step 7: Store knowledge in graph
-    await graphRAG.storeKnowledge(
+    // ✨ NEW: Store with vector embeddings
+    await enhancedRAG.storeKnowledgeWithVectors(
       userId,
-      allEntities,
+      responseEntities,
       relationships,
       conversationId
     );
 
-    // Step 8: Store conversation history with analytics
-    const tokenAnalytics = graphRAG.getTokenAnalytics(relevantKnowledge);
-    await storeConversationHistory(
-      userId,
-      conversationId,
-      message.trim(),
-      aiResponse,
-      allEntities,
-      relevantKnowledge,
-      tokenAnalytics
-    );
-
-    // Step 9: Periodic cleanup (every 50th request)
-    if (Math.random() < 0.02) {
-      // 2% chance
-      graphRAG.cleanupOldKnowledge(userId, 30).catch(console.error);
+    // Store conversation history
+    try {
+      const supabase = getAuthenticatedClient(req.accessToken);
+      
+      // Store user message
+      await supabase.from("conversation_history").insert({
+        user_id: userId,
+        conversation_id: conversationId,
+        message_type: "user",
+        message_content: message.trim(),
+        created_at: new Date().toISOString()
+      });
+      
+      // Store AI response
+      await supabase.from("conversation_history").insert({
+        user_id: userId,
+        conversation_id: conversationId,
+        message_type: "ai",
+        message_content: aiResponse,
+        entities_extracted: {
+          count: responseEntities.length,
+          entities: responseEntities.map(e => e.entity)
+        },
+        knowledge_used: {
+          entities_count: relevantKnowledge.entities.length,
+          relationships_count: relevantKnowledge.relationships.length
+        },
+        created_at: new Date().toISOString()
+      });
+      
+      console.log(`[GRAPH RAG] Stored conversation ${conversationId} with ${responseEntities.length} entities`);
+    } catch (historyError) {
+      console.error("Error storing conversation history:", historyError);
     }
 
     res.json({
@@ -109,15 +118,15 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
           has_profile: !!profile,
           business_type: profile?.business_type || null,
           has_revenue_data: !!profile?.monthly_revenue,
-          entities_extracted: entities.length,
-          knowledge_retrieved: relevantKnowledge.entities.length,
-          relationships_found: relevantKnowledge.relationships.length,
-          token_efficiency:
-            relevantKnowledge.optimization?.token_efficiency || "N/A",
-          optimization_stats: relevantKnowledge.optimization,
+          knowledge_entities_used: relevantKnowledge.entities.length,
+          knowledge_relationships_used: relevantKnowledge.relationships.length,
+          search_metadata: relevantKnowledge.search_metadata,
         },
         conversation_id: conversationId,
-        token_analytics: tokenAnalytics,
+        knowledge_summary: {
+          new_entities_extracted: responseEntities.length,
+          new_relationships_found: relationships.length,
+        },
       },
       error: null,
     });
@@ -145,8 +154,6 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
           timestamp: new Date().toISOString(),
           context_used: {
             has_profile: !!profile,
-            business_type: profile?.business_type || null,
-            has_revenue_data: !!profile?.monthly_revenue,
             fallback_mode: true,
           },
         },
@@ -156,23 +163,6 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
       console.error("Fallback error:", fallbackError);
     }
 
-    // Handle specific OpenAI errors
-    if (error.message.includes("API key")) {
-      return res.status(500).json({
-        success: false,
-        error: "AI service configuration error",
-        data: null,
-      });
-    }
-
-    if (error.message.includes("rate limit")) {
-      return res.status(429).json({
-        success: false,
-        error: "AI service is busy. Please try again in a moment",
-        data: null,
-      });
-    }
-
     res.status(500).json({
       success: false,
       error: "AI assistant is temporarily unavailable",
@@ -180,6 +170,11 @@ const chatAssistantWithRAG = asyncHandler(async (req, res) => {
     });
   }
 });
+
+module.exports = {
+  chatAssistantWithRAG,
+  // ... other exports
+};
 
 // Enhanced conversation history storage with token analytics
 async function storeConversationHistory(

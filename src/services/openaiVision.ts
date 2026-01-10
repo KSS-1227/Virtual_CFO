@@ -177,14 +177,14 @@ EXTRACT ALL VISIBLE TRANSACTIONS. Do not summarize - each row is a separate tran
 
     } catch (error) {
       console.error('Document analysis error:', error);
-      
+
       // Handle authentication errors specifically
       if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         throw new Error('Authentication required. Please log in to use document processing.');
       }
-      
-      // Return fallback data with error indication
-      return this.getFallbackData(error.message);
+
+      // Do NOT return demo/fallback data. Surface the error to the caller.
+      throw new Error(`Document processing failed: ${error?.message || String(error)}`);
     }
   }
 
@@ -256,6 +256,80 @@ EXTRACT ALL VISIBLE TRANSACTIONS. Do not summarize - each row is a separate tran
       };
     }
   }
+    // CRITICAL FIX #1: Token usage tracking for cost visibility
+    private async trackTokenUsage(
+      fileName: string,
+      response: any
+    ): Promise<{ 
+      totalTokens: number; 
+      inputTokens: number; 
+      outputTokens: number; 
+      estimatedCost: number;
+      model: string;
+    }> {
+      // Extract token usage from API response
+      const usage = response?.usage || { prompt_tokens: 0, completion_tokens: 0 };
+      const inputTokens = usage.prompt_tokens || 0;
+      const outputTokens = usage.completion_tokens || 0;
+      const totalTokens = inputTokens + outputTokens;
+    
+      // Model detection and cost calculation (as of Jan 2025)
+      let model = 'gpt-4o';
+      let costPerMTok = 0; // cost per million tokens
+    
+      // Cost: GPT-4o = $2.50/$10 (input/output)
+      const inputCost = (inputTokens / 1000000) * 2.50;
+      const outputCost = (outputTokens / 1000000) * 10.00;
+      const estimatedCostUSD = inputCost + outputCost;
+      const estimatedCostINR = estimatedCostUSD * 83; // approx INR conversion
+    
+      // Log for analytics
+      console.log(`Token usage for ${fileName}:`, {
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        estimatedCostINR: estimatedCostINR.toFixed(2)
+      });
+    
+      return {
+        totalTokens,
+        inputTokens,
+        outputTokens,
+        estimatedCost: estimatedCostINR,
+        model
+      };
+    }
+
+    // CRITICAL FIX #2: Resilient error recovery with retry logic
+    private async retryWithBackoff<T>(
+      operation: () => Promise<T>,
+      maxRetries: number = 3,
+      baseDelay: number = 1000
+    ): Promise<T> {
+      let lastError: Error;
+    
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await operation();
+        } catch (error) {
+          lastError = error as Error;
+        
+          // Don't retry authentication errors
+          if (lastError.message.includes('401') || lastError.message.includes('Unauthorized')) {
+            throw lastError;
+          }
+        
+          // Exponential backoff: 1s, 2s, 4s
+          if (attempt < maxRetries - 1) {
+            const delay = baseDelay * Math.pow(2, attempt);
+            console.warn(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms:`, lastError.message);
+            await this.delay(delay);
+          }
+        }
+      }
+    
+      throw lastError!;
+    }
   
   private createBatches<T>(items: T[], batchSize: number): T[][] {
     const batches: T[][] = [];
@@ -284,21 +358,16 @@ EXTRACT ALL VISIBLE TRANSACTIONS. Do not summarize - each row is a separate tran
   }
 
   private getFallbackData(errorMessage?: string): ProcessedData[] {
-    // Show clear message that this is demo/fallback data
-    const today = new Date().toISOString().split('T')[0];
-    return [
-      {
-        date: today,
-        description: "⚠️ Demo Mode - Real processing unavailable",
-        amount: -1500,
-        category: "Operations",
-        subcategory: "Demo",
-        confidence: 0.5,
-        vendor: "Demo System",
-        items: [{ name: "Demo Transaction", quantity: 1, price: 1500 }]
-      }
-    ];
+    // Deprecated: do not return demo data. Surface as error instead.
+    return this.handleProcessingError(errorMessage || 'Processing unavailable');
   }
+
+    private handleProcessingError(errorMessage: string): ProcessedData[] {
+      // CRITICAL FIX #3: Don't return fake demo data on errors
+      // Instead, throw the error so UI can handle it properly
+      console.error('Processing failed. User should see actual error, not fake data.');
+      throw new Error(`Document processing failed: ${errorMessage}`);
+    }
 
   // Validate extracted data
   validateExtraction(data: ProcessedData): { isValid: boolean; issues: string[] } {

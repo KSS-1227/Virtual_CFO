@@ -119,53 +119,31 @@ class RedisService {
    */
   async checkRateLimit(identifier, maxRequests, windowMs) {
     try {
-      // Security validation
-      if (
-        !identifier ||
-        typeof identifier !== "string" ||
-        identifier.length > 256
-      ) {
-        console.warn("❌ Invalid rate limit identifier");
-        // Allow request to prevent DoS but log the event
-        return {
-          allowed: true,
-          remaining: maxRequests,
-          resetTime: Date.now() + windowMs,
-        };
+      if (!identifier || typeof identifier !== "string" || identifier.length > 256) {
+        return { allowed: true, remaining: maxRequests, resetTime: Date.now() + windowMs };
       }
 
-      // Hash identifier for additional security
       const hashedIdentifier = this.hashToken(identifier);
       const key = `${this.rateLimitPrefix}${hashedIdentifier}`;
       const now = Date.now();
       const windowStart = now - windowMs;
 
-      // Remove old entries outside the window
-      await redisRateLimiter.zremrangebyscore(key, 0, windowStart);
-
-      // Count current requests
-      const currentCount = await redisRateLimiter.zcard(key);
-
-      // Check if limit exceeded
-      if (currentCount >= maxRequests) {
-        const resetTime = await this.getRateLimitResetTime(key, windowMs);
-        console.log(
-          `⚠️ Rate limit exceeded for identifier: ${identifier.substring(
-            0,
-            30
-          )}...`
-        );
-        return {
-          allowed: false,
-          remaining: 0,
-          resetTime,
-        };
+      if (redisRateLimiter && typeof redisRateLimiter.zremrangebyscore === 'function') {
+        await redisRateLimiter.zremrangebyscore(key, 0, windowStart);
       }
 
-      // Add current request with timestamp
-      await redisRateLimiter.zadd(key, now, `${now}-${Math.random()}`);
-      // Set expiration to clean up old keys (add buffer time)
-      await redisRateLimiter.expire(key, Math.ceil((windowMs * 2) / 1000));
+      const currentCount = (redisRateLimiter && typeof redisRateLimiter.zcard === 'function') 
+        ? await redisRateLimiter.zcard(key) : 0;
+
+      if (currentCount >= maxRequests) {
+        const resetTime = await this.getRateLimitResetTime(key, windowMs);
+        return { allowed: false, remaining: 0, resetTime };
+      }
+
+      if (redisRateLimiter && typeof redisRateLimiter.zadd === 'function') {
+        await redisRateLimiter.zadd(key, now, `${now}-${Math.random()}`);
+        await redisRateLimiter.expire(key, Math.ceil((windowMs * 2) / 1000));
+      }
 
       return {
         allowed: true,
@@ -174,13 +152,7 @@ class RedisService {
       };
     } catch (error) {
       console.error("❌ Error checking rate limit:", error);
-      // In case of Redis failure, we allow the request to avoid blocking legitimate users
-      // This is a security trade-off to prevent DoS but could allow rate limit bypass
-      return {
-        allowed: true,
-        remaining: maxRequests,
-        resetTime: Date.now() + windowMs,
-      };
+      return { allowed: true, remaining: maxRequests, resetTime: Date.now() + windowMs };
     }
   }
 
