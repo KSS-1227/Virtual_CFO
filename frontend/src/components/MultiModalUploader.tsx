@@ -176,8 +176,15 @@ const MultiModalUploader = () => {
           setExtractedData(result.data.extracted_data);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('File processing error:', error);
+      if (error.message?.includes('Please log in')) {
+        alert('Please log in to your account first to use AI features.');
+      } else if (error.message?.includes('Failed to fetch')) {
+        alert('Unable to connect to server. Please check if you are logged in and try again.');
+      } else {
+        alert('Error processing file: ' + error.message);
+      }
     } finally {
       setIsProcessing(false);
     }

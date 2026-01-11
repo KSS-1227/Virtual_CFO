@@ -7,12 +7,18 @@ const {
   updateDocument,
   deleteDocument,
   getDocumentStats,
+  processFinancialDocument,
+  batchProcessDocuments
 } = require("../controllers/documentController");
 
 const router = express.Router();
 
 // All document routes require authentication
 router.use(authenticateToken);
+
+// Enhanced document processing routes
+router.post("/process", processFinancialDocument);
+router.post("/batch-process", batchProcessDocuments);
 
 // GET /api/documents - Get all documents for user
 router.get("/", getDocuments);

@@ -1,5 +1,29 @@
 const { getAuthenticatedClient } = require("../config/supabase");
 const { asyncHandler } = require("../middleware/errorHandler");
+const documentProcessingService = require("../services/documentProcessingService");
+const multer = require('multer');
+const fs = require('fs').promises;
+
+// Configure multer for document uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for documents
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/webp',
+      'application/pdf',
+      'text/plain', 'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type. Please upload images, PDFs, or spreadsheets.'));
+    }
+  }
+});
 
 // Get all documents for the authenticated user
 const getDocuments = asyncHandler(async (req, res) => {
@@ -293,6 +317,193 @@ const getDocumentStats = asyncHandler(async (req, res) => {
   });
 });
 
+// Enhanced document processing endpoint
+const processFinancialDocument = asyncHandler(async (req, res) => {
+  try {
+    const file = req.file;
+    const { document_type, expected_data_type } = req.body;
+    
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: "Document file is required"
+      });
+    }
+
+    const supabase = getAuthenticatedClient(req.accessToken);
+    
+    // Get user profile for context
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", req.user.id)
+      .single();
+
+    // Prepare document data
+    const documentData = {
+      fileType: file.mimetype,
+      content: file.buffer.toString('base64'),
+      fileName: file.originalname,
+      fileSize: file.size
+    };
+
+    // Process document with enhanced AI
+    const extractedData = await documentProcessingService.processFinancialDocument(
+      documentData, 
+      profile || {}
+    );
+
+    // Auto-save to database if confidence is high
+    let savedEntries = [];
+    if (extractedData.confidence > 0.7 && !extractedData.review_required) {
+      
+      // Save main document record
+      const documentRecord = {
+        user_id: req.user.id,
+        file_name: file.originalname,
+        file_url: `processed_${Date.now()}_${file.originalname}`,
+        doc_type: extractedData.document_type || document_type || 'financial_document',
+        extracted_text: JSON.stringify(extractedData),
+        file_size: file.size,
+        mime_type: file.mimetype,
+        status: 'processed'
+      };
+
+      const { data: savedDoc } = await supabase
+        .from('documents')
+        .insert(documentRecord)
+        .select()
+        .single();
+
+      // Save individual transactions to earnings table
+      if (extractedData.line_items && extractedData.line_items.length > 0) {
+        for (const item of extractedData.line_items) {
+          const earningsData = {
+            user_id: req.user.id,
+            earning_date: extractedData.date_range?.start_date || new Date().toISOString().split('T')[0],
+            amount: item.type === 'revenue' ? item.amount : 0,
+            inventory_cost: item.type === 'expense' ? item.amount : 0,
+            processed_text: `${item.description} - Auto-extracted from ${file.originalname}`,
+            doc_type: 'document_extraction',
+            file_url: savedDoc.file_url,
+            vendor_name: extractedData.vendor_customer_info?.name || 'Unknown',
+            transaction_category: item.category || 'General'
+          };
+
+          const { data: savedEntry } = await supabase
+            .from('earnings')
+            .insert(earningsData)
+            .select()
+            .single();
+
+          savedEntries.push(savedEntry);
+        }
+      }
+
+      // Save summary totals if no line items
+      if (extractedData.line_items?.length === 0 && (extractedData.total_revenue > 0 || extractedData.total_expenses > 0)) {
+        const summaryData = {
+          user_id: req.user.id,
+          earning_date: extractedData.date_range?.start_date || new Date().toISOString().split('T')[0],
+          amount: extractedData.total_revenue || 0,
+          inventory_cost: extractedData.total_expenses || 0,
+          processed_text: `Document summary - ${file.originalname}`,
+          doc_type: 'document_summary',
+          file_url: savedDoc.file_url,
+          vendor_name: extractedData.vendor_customer_info?.name || 'Document Extract'
+        };
+
+        const { data: summaryEntry } = await supabase
+          .from('earnings')
+          .insert(summaryData)
+          .select()
+          .single();
+
+        savedEntries.push(summaryEntry);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        extracted_data: extractedData,
+        auto_saved: savedEntries.length > 0,
+        saved_entries: savedEntries,
+        processing_summary: {
+          total_revenue: extractedData.total_revenue || 0,
+          total_expenses: extractedData.total_expenses || 0,
+          net_amount: extractedData.net_amount || 0,
+          line_items_count: extractedData.line_items?.length || 0,
+          confidence_score: extractedData.confidence || 0,
+          review_required: extractedData.review_required || false
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Document processing error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process financial document",
+      details: error.message
+    });
+  }
+});
+
+// Batch document processing endpoint
+const batchProcessDocuments = asyncHandler(async (req, res) => {
+  try {
+    const files = req.files;
+    
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "At least one document file is required"
+      });
+    }
+
+    const supabase = getAuthenticatedClient(req.accessToken);
+    
+    // Get user profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", req.user.id)
+      .single();
+
+    // Prepare documents for batch processing
+    const documents = files.map(file => ({
+      fileType: file.mimetype,
+      content: file.buffer.toString('base64'),
+      fileName: file.originalname,
+      fileSize: file.size
+    }));
+
+    // Process all documents
+    const batchResult = await documentProcessingService.batchProcessDocuments(
+      documents,
+      profile || {}
+    );
+
+    res.json({
+      success: true,
+      data: {
+        batch_summary: batchResult.batch_summary,
+        individual_results: batchResult.individual_results,
+        processing_time: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error("Batch processing error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process documents in batch",
+      details: error.message
+    });
+  }
+});
+
 module.exports = {
   getDocuments,
   getDocument,
@@ -300,4 +511,6 @@ module.exports = {
   updateDocument,
   deleteDocument,
   getDocumentStats,
+  processFinancialDocument: [upload.single('document'), processFinancialDocument],
+  batchProcessDocuments: [upload.array('documents', 10), batchProcessDocuments]
 };
